@@ -6,7 +6,7 @@ const router = express.Router();
 const constructionDataController = require('./construction-data.controller');
 const { authenticate } = require('../../shared/middleware/auth.middleware');
 
-const uploadTempDir = path.join(process.cwd(), 'uploads', 'construction-photos');
+const uploadTempDir = path.join(process.env.TMPDIR || process.env.TEMP || '/tmp', 'abk-construction-photos');
 fs.mkdirSync(uploadTempDir, { recursive: true });
 
 const upload = multer({
