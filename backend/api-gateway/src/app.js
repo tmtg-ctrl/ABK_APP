@@ -15,7 +15,9 @@ const errorHandler = require('./shared/middleware/error-handler.middleware');
 
 const app = express();
 
-const corsOrigin = process.env.CORS_ORIGIN || '*';
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : '*';
 
 app.use(cors({ origin: corsOrigin }));
 app.use(morgan('combined'));
