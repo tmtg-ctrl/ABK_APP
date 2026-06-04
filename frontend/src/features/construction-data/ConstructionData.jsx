@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Building2,
   CalendarDays,
@@ -380,6 +380,8 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [loadingExistingPhotos, setLoadingExistingPhotos] = useState(false);
   const [photoLoadError, setPhotoLoadError] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [logoDataUrl, setLogoDataUrl] = useState(() => window.localStorage.getItem('abk_media_logo') || '');
   const [error, setError] = useState('');
 
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
@@ -509,6 +511,45 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
   const handleDrop = (event) => {
     event.preventDefault();
     setPhotos(Array.from(event.dataTransfer.files || []).filter((file) => file.type.startsWith('image/')));
+  };
+
+  const selectLogo = (file) => {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      setLogoDataUrl(dataUrl);
+      window.localStorage.setItem('abk_media_logo', dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadEditedPhoto = async (blob, filename) => {
+    setUploading(true);
+    setError('');
+
+    try {
+      const body = new FormData();
+      body.append('stage', uploadStage);
+      body.append('year', record.year);
+      body.append('photos', new File([blob], filename, { type: 'image/jpeg' }));
+
+      await apiRequest(`/api/construction-data/${record.sheetRowNumber}/photos?year=${record.year}`, {
+        method: 'POST',
+        token,
+        body
+      });
+
+      await loadExistingPhotos(uploadStage);
+      setSelectedPhoto(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -693,6 +734,11 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
               </a>
             )}
           </div>
+          <label className="logo-picker">
+            <span>Logo gan len anh</span>
+            <input accept="image/*" type="file" onChange={(event) => selectLogo(event.target.files?.[0])} />
+            <strong>{logoDataUrl ? 'Da co logo' : 'Chon file logo'}</strong>
+          </label>
 
           <div className="photo-stage-tabs">
             {uploadStages.map(([value, label]) => (
@@ -752,23 +798,42 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
             ) : existingPhotos.length > 0 ? (
               <div className="existing-photo-grid">
                 {existingPhotos.map((photo) => (
-                  <a href={photo.previewUrl || '#'} key={photo.name} rel="noreferrer" target="_blank" title={photo.name}>
-                    {photo.previewUrl ? (
-                      <img alt={photo.name} loading="lazy" src={photo.previewUrl} />
-                    ) : (
-                      <div className="photo-preview-fallback">
-                        <ImagePlus size={20} />
-                        <small>Preview loi</small>
-                      </div>
-                    )}
+                  <div className="photo-card" key={photo.name} title={photo.name}>
+                    <a href={photo.previewUrl || '#'} rel="noreferrer" target="_blank">
+                      {photo.previewUrl ? (
+                        <img alt={photo.name} loading="lazy" src={photo.previewUrl} />
+                      ) : (
+                        <div className="photo-preview-fallback">
+                          <ImagePlus size={20} />
+                          <small>Preview loi</small>
+                        </div>
+                      )}
+                    </a>
                     <span>{photo.name}</span>
-                  </a>
+                    <button
+                      className="secondary-action compact-action"
+                      disabled={!photo.previewUrl}
+                      onClick={() => setSelectedPhoto(photo)}
+                      type="button"
+                    >
+                      Chinh 1:1
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : (
               <p>{record.dataLink ? 'Thu muc nay chua co anh.' : 'Chua co LINK DU LIEU.'}</p>
             )}
           </div>
+          {selectedPhoto && (
+            <PhotoSquareEditor
+              logoDataUrl={logoDataUrl}
+              onClose={() => setSelectedPhoto(null)}
+              onUpload={uploadEditedPhoto}
+              photo={selectedPhoto}
+              uploading={uploading}
+            />
+          )}
         </section>
         )}
       </div>
@@ -781,5 +846,139 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function PhotoSquareEditor({ logoDataUrl, onClose, onUpload, photo, uploading }) {
+  const canvasRef = useRef(null);
+  const [imageElement, setImageElement] = useState(null);
+  const [logoElement, setLogoElement] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [offsetX, setOffsetX] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const [logoSize, setLogoSize] = useState(18);
+  const [logoPosition, setLogoPosition] = useState('bottom-right');
+
+  useEffect(() => {
+    const image = new Image();
+    image.onload = () => setImageElement(image);
+    image.src = photo.previewUrl;
+  }, [photo.previewUrl]);
+
+  useEffect(() => {
+    if (!logoDataUrl) {
+      setLogoElement(null);
+      return;
+    }
+
+    const logo = new Image();
+    logo.onload = () => setLogoElement(logo);
+    logo.src = logoDataUrl;
+  }, [logoDataUrl]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imageElement) {
+      return;
+    }
+
+    const size = 1080;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+
+    const baseScale = Math.max(size / imageElement.width, size / imageElement.height);
+    const scale = baseScale * zoom;
+    const width = imageElement.width * scale;
+    const height = imageElement.height * scale;
+    const x = (size - width) / 2 + offsetX * size * 0.35;
+    const y = (size - height) / 2 + offsetY * size * 0.35;
+
+    ctx.drawImage(imageElement, x, y, width, height);
+
+    if (logoElement) {
+      const logoWidth = size * (logoSize / 100);
+      const logoHeight = logoWidth * (logoElement.height / logoElement.width);
+      const margin = size * 0.035;
+      const positions = {
+        'bottom-right': [size - logoWidth - margin, size - logoHeight - margin],
+        'bottom-left': [margin, size - logoHeight - margin],
+        'top-right': [size - logoWidth - margin, margin],
+        'top-left': [margin, margin]
+      };
+      const [logoX, logoY] = positions[logoPosition] || positions['bottom-right'];
+      ctx.drawImage(logoElement, logoX, logoY, logoWidth, logoHeight);
+    }
+  }, [imageElement, logoElement, logoPosition, logoSize, offsetX, offsetY, zoom]);
+
+  const exportBlob = () =>
+    new Promise((resolve) => {
+      canvasRef.current.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
+    });
+
+  const download = async () => {
+    const blob = await exportBlob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `abk-1x1-${photo.name.replace(/\.[^.]+$/, '')}.jpg`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const upload = async () => {
+    const blob = await exportBlob();
+    await onUpload(blob, `abk-1x1-${photo.name.replace(/\.[^.]+$/, '')}.jpg`);
+  };
+
+  return (
+    <div className="photo-editor">
+      <div className="photo-editor-head">
+        <div>
+          <span>Crop 1:1 va gan logo</span>
+          <strong>{photo.name}</strong>
+        </div>
+        <button className="secondary-action compact-action" onClick={onClose} type="button">
+          Close
+        </button>
+      </div>
+      <canvas height="1080" ref={canvasRef} width="1080" />
+      <div className="photo-editor-controls">
+        <label>
+          Zoom
+          <input max="2.4" min="1" onChange={(event) => setZoom(Number(event.target.value))} step="0.01" type="range" value={zoom} />
+        </label>
+        <label>
+          Doi ngang
+          <input max="1" min="-1" onChange={(event) => setOffsetX(Number(event.target.value))} step="0.01" type="range" value={offsetX} />
+        </label>
+        <label>
+          Doi doc
+          <input max="1" min="-1" onChange={(event) => setOffsetY(Number(event.target.value))} step="0.01" type="range" value={offsetY} />
+        </label>
+        <label>
+          Logo size
+          <input max="35" min="8" onChange={(event) => setLogoSize(Number(event.target.value))} step="1" type="range" value={logoSize} />
+        </label>
+        <label>
+          Vi tri logo
+          <select value={logoPosition} onChange={(event) => setLogoPosition(event.target.value)}>
+            <option value="bottom-right">Duoi phai</option>
+            <option value="bottom-left">Duoi trai</option>
+            <option value="top-right">Tren phai</option>
+            <option value="top-left">Tren trai</option>
+          </select>
+        </label>
+      </div>
+      <div className="canva-action-strip">
+        <button className="secondary-action" onClick={download} type="button">
+          Tai JPG
+        </button>
+        <button className="primary-action" disabled={uploading} onClick={upload} type="button">
+          {uploading ? 'Dang luu...' : 'Luu vao thu muc'}
+        </button>
+      </div>
+    </div>
   );
 }
