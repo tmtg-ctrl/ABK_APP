@@ -27,6 +27,29 @@ const normalize = (value) =>
 
 const cell = (row, index) => clean(row[index]);
 
+const normalizePrivateKey = (value) => {
+  const rawKey = String(value || '')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\n/g, '\n')
+    .replace(/\r\n/g, '\n');
+
+  const match = rawKey.match(/-----BEGIN PRIVATE KEY-----(.*?)-----END PRIVATE KEY-----/s);
+  if (!match) {
+    return rawKey;
+  }
+
+  const body = match[1].replace(/\s+/g, '');
+  const lines = body.match(/.{1,64}/g) || [];
+
+  return [
+    '-----BEGIN PRIVATE KEY-----',
+    ...lines,
+    '-----END PRIVATE KEY-----',
+    ''
+  ].join('\n');
+};
+
 const getSheetName = (year = '2026') => {
   const normalizedYear = String(year || '2026');
   const sheetName = SHEETS_BY_YEAR[normalizedYear];
@@ -43,7 +66,7 @@ const getSheetName = (year = '2026') => {
 const getGoogleAuth = () => {
   const keyFilePath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  const privateKey = normalizePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
 
   if (keyFilePath) {
     if (!fs.existsSync(keyFilePath)) {
