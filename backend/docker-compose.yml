@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: abk-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - abk-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: abk-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHON_WORKERS_HOST=python-workers
+      - PYTHON_WORKERS_PORT=5000
+    depends_on:
+      - redis
+      - python-workers
+    networks:
+      - abk-network
+    volumes:
+      - ./api-gateway/src:/app/src
+
+  python-workers:
+    build:
+      context: ./python-workers
+      dockerfile: Dockerfile
+    container_name: abk-python-workers
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - PORT=5000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    networks:
+      - abk-network
+    volumes:
+      - ./python-workers/app:/app/app
+
+networks:
+  abk-network:
+    driver: bridge
