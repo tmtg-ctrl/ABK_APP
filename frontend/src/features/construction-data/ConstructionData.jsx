@@ -379,12 +379,14 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
   const [photos, setPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [loadingExistingPhotos, setLoadingExistingPhotos] = useState(false);
+  const [photoLoadError, setPhotoLoadError] = useState('');
   const [error, setError] = useState('');
 
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   const loadExistingPhotos = async (stage = uploadStage) => {
     if (isCreating || !record.dataLink) {
+      setPhotoLoadError('');
       setExistingPhotos((current) => {
         current.forEach((photo) => photo.previewUrl && URL.revokeObjectURL(photo.previewUrl));
         return [];
@@ -393,6 +395,7 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
     }
 
     setLoadingExistingPhotos(true);
+    setPhotoLoadError('');
 
     try {
       const params = new URLSearchParams({
@@ -403,17 +406,31 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
       const files = data.files || [];
       const previews = await Promise.all(
         files.slice(0, 24).map(async (photo) => {
-          const response = await fetch(`${API_BASE_URL}${photo.url}`, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          const blob = await response.blob();
+          try {
+            const response = await fetch(`${API_BASE_URL}${photo.url}`, {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
 
-          return {
-            ...photo,
-            previewUrl: URL.createObjectURL(blob)
-          };
+            if (!response.ok) {
+              throw new Error(`Photo preview failed: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+
+            return {
+              ...photo,
+              previewUrl: URL.createObjectURL(blob),
+              previewError: ''
+            };
+          } catch (err) {
+            return {
+              ...photo,
+              previewUrl: '',
+              previewError: err.message
+            };
+          }
         })
       );
       setExistingPhotos((current) => {
@@ -425,7 +442,7 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
         current.forEach((photo) => photo.previewUrl && URL.revokeObjectURL(photo.previewUrl));
         return [];
       });
-      setError(err.message);
+      setPhotoLoadError(err.message);
     } finally {
       setLoadingExistingPhotos(false);
     }
@@ -713,19 +730,37 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
           <div className="existing-photo-strip">
             <div className="existing-photo-title">
               <span>Anh dang co</span>
-              <strong>{loadingExistingPhotos ? 'Dang doc...' : `${existingPhotos.length} anh`}</strong>
+              <strong>{loadingExistingPhotos ? 'Dang tai anh...' : `${existingPhotos.length} anh`}</strong>
             </div>
-            {existingPhotos.length > 0 ? (
+            {loadingExistingPhotos ? (
+              <div className="existing-photo-grid">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div className="photo-skeleton" key={index}>
+                    <RefreshCw className="spin" size={18} />
+                    <span>Dang tai</span>
+                  </div>
+                ))}
+              </div>
+            ) : photoLoadError ? (
+              <div className="photo-load-state">
+                <InlineError message={photoLoadError} />
+                <button className="secondary-action" onClick={() => loadExistingPhotos(uploadStage)} type="button">
+                  <RefreshCw size={16} />
+                  Thu lai
+                </button>
+              </div>
+            ) : existingPhotos.length > 0 ? (
               <div className="existing-photo-grid">
                 {existingPhotos.map((photo) => (
-                  <a
-                    href={photo.previewUrl}
-                    key={photo.name}
-                    rel="noreferrer"
-                    target="_blank"
-                    title={photo.name}
-                  >
-                    <img alt={photo.name} src={photo.previewUrl} />
+                  <a href={photo.previewUrl || '#'} key={photo.name} rel="noreferrer" target="_blank" title={photo.name}>
+                    {photo.previewUrl ? (
+                      <img alt={photo.name} loading="lazy" src={photo.previewUrl} />
+                    ) : (
+                      <div className="photo-preview-fallback">
+                        <ImagePlus size={20} />
+                        <small>Preview loi</small>
+                      </div>
+                    )}
                     <span>{photo.name}</span>
                   </a>
                 ))}

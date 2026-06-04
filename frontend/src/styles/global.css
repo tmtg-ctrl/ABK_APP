@@ -1022,6 +1022,38 @@ select:focus {
   text-decoration: none;
 }
 
+.photo-skeleton,
+.photo-preview-fallback,
+.photo-load-state {
+  align-items: center;
+  background: #f7f8fa;
+  border: 1px dashed #c7d0dd;
+  border-radius: 8px;
+  color: #667085;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-height: 118px;
+  padding: 12px;
+  text-align: center;
+}
+
+.photo-skeleton span,
+.photo-preview-fallback small {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.photo-load-state {
+  border-style: solid;
+  grid-column: 1 / -1;
+  justify-items: stretch;
+}
+
+.photo-load-state .inline-error {
+  margin: 0;
+}
+
 .existing-photo-grid img {
   aspect-ratio: 1;
   background: #eef2f6;
