@@ -1,4 +1,5 @@
 const { google } = require('googleapis');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
@@ -439,8 +440,52 @@ const getStageFolderPath = async (sheetRowNumber, { year = '2026', stage = 'foun
 
 const isImageFile = (filename) => /\.(png|jpe?g|webp|bmp|gif)$/i.test(filename);
 
+const getMediaAgentConfig = () => ({
+  url: clean(process.env.MEDIA_AGENT_URL).replace(/\/+$/, ''),
+  token: process.env.MEDIA_AGENT_TOKEN || ''
+});
+
+const mediaAgentRequest = async (config) => {
+  const agent = getMediaAgentConfig();
+
+  if (!agent.url) {
+    return null;
+  }
+
+  return axios({
+    ...config,
+    baseURL: agent.url,
+    headers: {
+      ...(config.headers || {}),
+      ...(agent.token ? { 'x-media-agent-token': agent.token } : {})
+    }
+  });
+};
+
 const listConstructionPhotos = async (sheetRowNumber, { year = '2026', stage = 'foundation' } = {}) => {
   const { targetFolder, stageConfig } = await getStageFolderPath(sheetRowNumber, { year, stage });
+  const agentResponse = await mediaAgentRequest({
+    method: 'GET',
+    url: '/photos',
+    params: { folder: targetFolder }
+  });
+
+  if (agentResponse) {
+    const files = (agentResponse.data.files || []).map((file) => ({
+      ...file,
+      url: `/api/construction-data/${sheetRowNumber}/photos/file?year=${encodeURIComponent(year)}&stage=${encodeURIComponent(stage)}&name=${encodeURIComponent(file.name)}`
+    }));
+
+    return {
+      year: String(year),
+      sheetRowNumber: Number(sheetRowNumber),
+      stage,
+      stageFolder: stageConfig.folder,
+      folderPath: targetFolder,
+      source: 'media_agent',
+      files
+    };
+  }
 
   if (!fs.existsSync(targetFolder)) {
     return {
@@ -492,6 +537,37 @@ const resolveConstructionPhotoPath = async (sheetRowNumber, { year = '2026', sta
   }
 
   return resolvedFile;
+};
+
+const getConstructionPhotoSource = async (sheetRowNumber, { year = '2026', stage = 'foundation', name } = {}) => {
+  const { targetFolder } = await getStageFolderPath(sheetRowNumber, { year, stage });
+  const fileName = path.basename(name || '');
+
+  if (!isImageFile(fileName)) {
+    const error = new Error('Photo file was not found.');
+    error.status = 404;
+    throw error;
+  }
+
+  const agentResponse = await mediaAgentRequest({
+    method: 'GET',
+    url: '/photos/file',
+    params: { folder: targetFolder, name: fileName },
+    responseType: 'stream'
+  });
+
+  if (agentResponse) {
+    return {
+      type: 'remote',
+      stream: agentResponse.data,
+      contentType: agentResponse.headers['content-type'] || 'application/octet-stream'
+    };
+  }
+
+  return {
+    type: 'local',
+    path: await resolveConstructionPhotoPath(sheetRowNumber, { year, stage, name })
+  };
 };
 
 const updateConstructionDataRow = async (sheetRowNumber, updates, { year = '2026' } = {}) => {
@@ -563,6 +639,50 @@ const saveConstructionPhotos = async (sheetRowNumber, files = [], { year = '2026
   }
 
   const { targetFolder } = await getStageFolderPath(rowNumber, { year, stage });
+  const agent = getMediaAgentConfig();
+
+  if (agent.url) {
+    const form = new FormData();
+    form.append('folder', targetFolder);
+
+    for (const file of files) {
+      const bytes = fs.readFileSync(file.path);
+      form.append('photos', new Blob([bytes], { type: file.mimetype || 'application/octet-stream' }), file.originalname);
+    }
+
+    const response = await mediaAgentRequest({
+      method: 'POST',
+      url: '/photos',
+      data: form,
+      headers: form.getHeaders ? form.getHeaders() : {}
+    });
+
+    files.forEach((file) => {
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    });
+
+    if (stageConfig.field) {
+      const updatePayload = {
+        year,
+        [stageConfig.field]: 'Đã lưu ảnh',
+        savedImageAt: today()
+      };
+      await updateConstructionDataRow(rowNumber, updatePayload, { year });
+    }
+
+    return {
+      uploaded: true,
+      year: String(year),
+      sheetRowNumber: rowNumber,
+      stage,
+      stageFolder: stageConfig.folder,
+      folderPath: targetFolder,
+      source: 'media_agent',
+      files: response.data.files || []
+    };
+  }
 
   fs.mkdirSync(targetFolder, { recursive: true });
 
@@ -602,6 +722,7 @@ module.exports = {
   getConstructionData,
   createConstructionDataRow,
   listConstructionPhotos,
+  getConstructionPhotoSource,
   resolveConstructionPhotoPath,
   updateConstructionDataRow,
   saveConstructionPhotos

@@ -1,8 +1,8 @@
 const {
   createConstructionDataRow,
   getConstructionData,
+  getConstructionPhotoSource,
   listConstructionPhotos,
-  resolveConstructionPhotoPath,
   saveConstructionPhotos,
   updateConstructionDataRow
 } = require('./construction-data.service');
@@ -82,13 +82,19 @@ exports.listConstructionPhotos = async (req, res, next) => {
 
 exports.getConstructionPhotoFile = async (req, res, next) => {
   try {
-    const filePath = await resolveConstructionPhotoPath(req.params.sheetRowNumber, {
+    const source = await getConstructionPhotoSource(req.params.sheetRowNumber, {
       year: req.query.year,
       stage: req.query.stage,
       name: req.query.name
     });
 
-    res.sendFile(filePath);
+    if (source.type === 'remote') {
+      res.setHeader('Content-Type', source.contentType);
+      source.stream.pipe(res);
+      return;
+    }
+
+    res.sendFile(source.path);
   } catch (error) {
     next(error);
   }
