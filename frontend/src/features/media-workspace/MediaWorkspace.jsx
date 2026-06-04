@@ -1,116 +1,165 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
   Camera,
   CheckCircle2,
-  Database,
+  ExternalLink,
   FileSpreadsheet,
   Image,
   Layers,
   Palette,
+  RefreshCw,
   Search,
   Video
 } from 'lucide-react';
 import { Badge } from '../../shared/components/Badge';
+import { EmptyState } from '../../shared/components/EmptyState';
+import { InlineError } from '../../shared/components/InlineError';
+import { apiRequest } from '../../shared/services/api';
 
-const mediaStages = [
+const needsWork = (record) => {
+  const text = [
+    record.imageProgress,
+    record.foundation,
+    record.floor,
+    record.rough,
+    record.finishing,
+    record.fanpageProgress,
+    record.websiteProgress
+  ].join(' ').toLowerCase();
+
+  return !text.includes('da dang') && !text.includes('đã đăng');
+};
+
+const inferStatus = (record) => {
+  const imageProgress = String(record.imageProgress || '').toLowerCase();
+  const fanpageProgress = String(record.fanpageProgress || '').toLowerCase();
+
+  if (fanpageProgress.includes('da dang') || fanpageProgress.includes('đã đăng')) {
+    return 'done';
+  }
+
+  if (imageProgress.includes('canva') || imageProgress.includes('dang') || imageProgress.includes('đang')) {
+    return 'doing';
+  }
+
+  if (imageProgress.includes('xuat') || imageProgress.includes('logo')) {
+    return 'review';
+  }
+
+  return 'todo';
+};
+
+const summarizeStages = (records) => [
   {
-    id: 'shooting',
-    title: 'Chup anh cong trinh',
+    id: 'saved',
+    title: 'Anh da luu',
     icon: Camera,
-    count: 8,
+    count: records.filter((record) => String(record.savedImageAt || '').trim()).length,
+    status: 'done'
+  },
+  {
+    id: 'canva',
+    title: 'Dang lam Canva',
+    icon: Palette,
+    count: records.filter((record) => String(record.imageProgress || '').toLowerCase().includes('canva')).length,
     status: 'doing'
   },
   {
-    id: 'photo-edit',
-    title: 'Chinh sua anh',
+    id: 'logo',
+    title: 'Can gan logo / xuat anh',
     icon: Image,
-    count: 12,
+    count: records.filter((record) => {
+      const text = String(record.imageProgress || '').toLowerCase();
+      return text.includes('logo') || text.includes('xuat') || text.includes('xuất');
+    }).length,
     status: 'review'
   },
   {
-    id: 'video',
-    title: 'Quay / edit video',
+    id: 'publish',
+    title: 'Cho dang fanpage',
     icon: Video,
-    count: 5,
-    status: 'doing'
-  },
-  {
-    id: 'design',
-    title: 'Thiet ke an pham',
-    icon: Palette,
-    count: 7,
+    count: records.filter((record) => String(record.fanpageProgress || '').toLowerCase().includes('cho')).length,
     status: 'todo'
   }
 ];
 
-const mediaItems = [
-  {
-    id: 'media-1',
-    project: 'DA 01 - Long An',
-    type: 'Photo',
-    job: 'Chup mat tien va khu vuc ban giao',
-    owner: 'Media Team',
-    status: 'doing',
-    source: 'Google Sheet cu'
-  },
-  {
-    id: 'media-2',
-    project: 'DA 10 - Dong Sai Gon',
-    type: 'Video',
-    job: 'Edit video gioi thieu cong trinh',
-    owner: 'Video Editor',
-    status: 'review',
-    source: 'Drive Folder'
-  },
-  {
-    id: 'media-3',
-    project: 'DA 28 - Bac Sai Gon',
-    type: 'Design',
-    job: 'Banner campaign Facebook',
-    owner: 'Designer',
-    status: 'todo',
-    source: 'App'
-  }
-];
+export function MediaWorkspace({ token }) {
+  const [records, setRecords] = useState([]);
+  const [query, setQuery] = useState('');
+  const [year, setYear] = useState('2026');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-const legacySheets = [
-  {
-    id: 'sheet-1',
-    name: 'Sheet tong hop hinh anh cong trinh',
-    owner: 'Nguoi cu',
-    status: 'review',
-    problem: 'Ten cot khong dong nhat, trung du lieu'
-  },
-  {
-    id: 'sheet-2',
-    name: 'Sheet video / content da dang',
-    owner: 'Marketing',
-    status: 'doing',
-    problem: 'Kho tim file goc va trang thai edit'
-  }
-];
+  const loadRecords = async (nextYear = year) => {
+    setLoading(true);
+    setError('');
 
-export function MediaWorkspace() {
+    try {
+      const params = new URLSearchParams({ year: nextYear, limit: '220' });
+      const data = await apiRequest(`/api/construction-data?${params.toString()}`, { token });
+      setRecords(data.records || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRecords(year);
+  }, [year]);
+
+  const filteredRecords = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return records
+      .filter(needsWork)
+      .filter((record) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return [
+          record.investorName,
+          record.zaloGroupName,
+          record.gdk,
+          record.oldAddress,
+          record.newAddress,
+          record.imageProgress,
+          record.fanpageProgress
+        ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery));
+      });
+  }, [records, query]);
+
+  const mediaStages = summarizeStages(records);
+
   return (
     <div className="media-workspace">
       <section className="media-hero panel">
         <div>
           <span className="eyebrow">Marketing Media</span>
-          <h3>Media operation workspace</h3>
+          <h3>Media / Canva production queue</h3>
           <p>
-            Gom cong viec chup anh, chinh sua anh, quay video, edit video, thiet ke va du lieu cong trinh vao mot luong de doi media de quan ly hon.
+            Gom cong trinh da co anh, dang lam Canva, can gan logo, cho xuat anh va cho dang fanpage vao mot hang doi de Media xu ly moi ngay.
           </p>
         </div>
         <div className="media-hero-actions">
-          <button className="secondary-action">
-            <FileSpreadsheet size={17} />
-            Legacy sheets
+          <select value={year} onChange={(event) => setYear(event.target.value)}>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+          <button className="secondary-action" disabled={loading} onClick={() => loadRecords(year)}>
+            <RefreshCw className={loading ? 'spin' : ''} size={17} />
+            Refresh
           </button>
-          <button className="primary-action">
+          <a className="primary-action" href="https://www.canva.com/design/" rel="noreferrer" target="_blank">
             <Layers size={17} />
-            New media job
-          </button>
+            Canva
+          </a>
         </div>
       </section>
+
+      {error && <InlineError message={error} />}
 
       <section className="media-stage-grid">
         {mediaStages.map((stage) => {
@@ -126,84 +175,63 @@ export function MediaWorkspace() {
         })}
       </section>
 
-      <div className="module-layout">
-        <section className="panel">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Media jobs</span>
-              <h3>Cong viec media dang xu ly</h3>
-            </div>
-            <CheckCircle2 size={20} />
-          </div>
-          <div className="search-box">
-            <Search size={17} />
-            <input placeholder="Search by project, type, owner" />
-          </div>
-          <div className="data-table">
-            <div className="table-row table-head media-table-row">
-              <span>Project</span>
-              <span>Type</span>
-              <span>Job</span>
-              <span>Status</span>
-              <span>Source</span>
-            </div>
-            {mediaItems.map((item) => (
-              <div className="table-row media-table-row" key={item.id}>
-                <strong>{item.project}</strong>
-                <span>{item.type}</span>
-                <span>{item.job}</span>
-                <Badge value={item.status} />
-                <span>{item.source}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="module-note">
-            <Database size={24} />
-            <h3>Luong doi du lieu phu hop</h3>
-            <p>
-              Truoc mat co the hien thi du lieu tu Google Sheet cu de moi nguoi van dung. Song song, app moi nen chuan hoa lai thanh media jobs, asset library va project data.
-            </p>
-          </div>
-          <div className="workflow-steps">
-            <div>
-              <strong>1. Tam giu sheet cu</strong>
-              <span>Khong cat ngang cong viec cua moi nguoi.</span>
-            </div>
-            <div>
-              <strong>2. Tao view trong app</strong>
-              <span>App doc/hien thi du lieu sheet theo form de xem de hon.</span>
-            </div>
-            <div>
-              <strong>3. Chuan hoa dan</strong>
-              <span>Moi du lieu moi nhap bang app, sheet chi lam legacy.</span>
-            </div>
-          </div>
-        </section>
-      </div>
-
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Legacy data</span>
-            <h3>Google Sheet dang can don lai</h3>
+            <span className="eyebrow">Media jobs</span>
+            <h3>Cong trinh can xu ly anh</h3>
           </div>
-          <FileSpreadsheet size={20} />
+          <CheckCircle2 size={20} />
         </div>
-        <div className="legacy-sheet-grid">
-          {legacySheets.map((sheet) => (
-            <div className="legacy-sheet-card" key={sheet.id}>
-              <FileSpreadsheet size={20} />
+        <div className="search-box">
+          <Search size={17} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by cong trinh, GDK, Zalo, trang thai" />
+        </div>
+        <div className="data-table">
+          <div className="table-row table-head media-queue-row">
+            <span>Cong trinh</span>
+            <span>Trang thai anh</span>
+            <span>Fanpage / Website</span>
+            <span>Canva</span>
+            <span>Status</span>
+          </div>
+          {filteredRecords.map((record) => (
+            <div className="table-row media-queue-row" key={record.id}>
               <div>
-                <strong>{sheet.name}</strong>
-                <span>{sheet.owner}</span>
-                <p>{sheet.problem}</p>
+                <strong>{record.investorName || 'Chua co ten'}</strong>
+                <span>{record.zaloGroupName || record.gdk || record.oldAddress || '-'}</span>
               </div>
-              <Badge value={sheet.status} />
+              <div>
+                <strong>{record.imageProgress || 'Chua cap nhat'}</strong>
+                <span>{record.savedImageAt ? `Luu anh: ${record.savedImageAt}` : 'Chua co ngay luu anh'}</span>
+              </div>
+              <div>
+                <strong>{record.fanpageProgress || 'Fanpage chua cap nhat'}</strong>
+                <span>{record.websiteProgress || 'Website chua cap nhat'}</span>
+              </div>
+              <div>
+                {record.latestProgressLink ? (
+                  <a href={record.latestProgressLink} rel="noreferrer" target="_blank">
+                    Open design <ExternalLink size={14} />
+                  </a>
+                ) : (
+                  <span>Chua co link Canva</span>
+                )}
+              </div>
+              <Badge value={inferStatus(record)} />
             </div>
           ))}
+          {!loading && !filteredRecords.length && <EmptyState text="Khong co cong trinh media nao trong hang doi." />}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="module-note">
+          <FileSpreadsheet size={24} />
+          <h3>Luong lam anh de xuat</h3>
+          <p>
+            Vao Du lieu cong trinh, bam Media tren tung dong de luu link Canva, danh dau Da gan logo, Da xuat anh, Cho content hoac Da dang fanpage. Media Workspace se tu gom lai thanh hang doi.
+          </p>
         </div>
       </section>
     </div>

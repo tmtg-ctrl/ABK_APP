@@ -206,7 +206,7 @@ export function Workspace({ session, onLogout }) {
           <Dashboard tasks={tasks} employees={employees} isManager={isManager} onOpenTasks={() => setView('marketing-assigned-tasks')} />
         )}
         {view === 'marketing-media' && (
-          <MediaWorkspace />
+          <MediaWorkspace token={session.token} />
         )}
         {view === 'marketing-posts' && (
           <MarketingPosts />

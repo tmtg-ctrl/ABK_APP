@@ -7,6 +7,7 @@ import {
   ImagePlus,
   MapPin,
   Pencil,
+  Palette,
   Plus,
   RefreshCw,
   Save,
@@ -84,10 +85,16 @@ const constructionColumnOptions = [
     <Badge value={normalizeStatus(record.imageProgress || record.dataStatus || record.shootingStatus)} />
   ) },
   { key: 'action', label: 'Action', render: (record, setEditingRecord) => (
-    <button className="secondary-action compact-action" onClick={() => setEditingRecord(record)}>
-      <Pencil size={15} />
-      Edit
-    </button>
+    <div className="construction-actions">
+      <button className="secondary-action compact-action" onClick={() => setEditingRecord(record)}>
+        <Pencil size={15} />
+        Edit
+      </button>
+      <button className="secondary-action compact-action" onClick={() => setEditingRecord({ ...record, __mediaMode: true })}>
+        <ImagePlus size={15} />
+        Media
+      </button>
+    </div>
   ) }
 ];
 
@@ -132,7 +139,7 @@ export function ConstructionData({ token }) {
   });
 
   const activeColumns = constructionColumnOptions.filter((column) => visibleColumns.includes(column.key));
-  const tableTemplate = activeColumns.map((column) => (column.key === 'action' ? '110px' : 'minmax(150px, 1fr)')).join(' ');
+  const tableTemplate = activeColumns.map((column) => (column.key === 'action' ? '190px' : 'minmax(150px, 1fr)')).join(' ');
 
   const toggleColumn = (key) => {
     setVisibleColumns((current) => {
@@ -301,8 +308,13 @@ export function ConstructionData({ token }) {
       </section>
 
       {editingRecord && (
-        <Modal className="construction-edit-modal" title="Cap nhat cong trinh" onClose={() => setEditingRecord(null)}>
+        <Modal
+          className="construction-edit-modal"
+          title={editingRecord.__mediaMode ? 'Media / Canva workflow' : 'Cap nhat cong trinh'}
+          onClose={() => setEditingRecord(null)}
+        >
           <ConstructionSheetForm
+            mode={editingRecord.__mediaMode ? 'media' : 'edit'}
             record={editingRecord}
             token={token}
             onSaved={() => {
@@ -332,6 +344,7 @@ export function ConstructionData({ token }) {
 
 function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
   const isCreating = mode === 'create';
+  const isMediaOnly = mode === 'media';
   const [form, setForm] = useState({
     year: record.year || '2026',
     investorName: record.investorName || '',
@@ -354,6 +367,10 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
     finishing: record.finishing || '',
     imageProgress: record.imageProgress || '',
     dataStatus: record.dataStatus || '',
+    fanpageProgress: record.fanpageProgress || '',
+    websiteProgress: record.websiteProgress || '',
+    latestProgressLink: record.latestProgressLink || '',
+    websiteUrl: record.websiteUrl || '',
     note: record.note || ''
   });
   const [saving, setSaving] = useState(false);
@@ -599,6 +616,67 @@ function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
 
         {!isCreating && (
         <section className="edit-section media-edit-section">
+          <div className="edit-section-title">
+            <Palette size={18} />
+            <strong>Canva va logo</strong>
+          </div>
+          <div className="edit-field-grid">
+            <label className="wide-field">
+              Link Canva / tien do gan nhat
+              <input
+                placeholder="Dan link Canva sau khi tao thiet ke"
+                value={form.latestProgressLink}
+                onChange={(event) => updateField('latestProgressLink', event.target.value)}
+              />
+            </label>
+            <label>
+              Tien do lam hinh
+              <select value={form.imageProgress} onChange={(event) => updateField('imageProgress', event.target.value)}>
+                <option value="">Chua chon</option>
+                <option value="Can lay anh">Can lay anh</option>
+                <option value="Da luu anh">Da luu anh</option>
+                <option value="Dang lam Canva">Dang lam Canva</option>
+                <option value="Da gan logo">Da gan logo</option>
+                <option value="Da xuat anh">Da xuat anh</option>
+                <option value="Da dang">Da dang</option>
+              </select>
+            </label>
+            <label>
+              Fanpage
+              <select value={form.fanpageProgress} onChange={(event) => updateField('fanpageProgress', event.target.value)}>
+                <option value="">Chua chon</option>
+                <option value="Chua dang">Chua dang</option>
+                <option value="Cho content">Cho content</option>
+                <option value="Da dang fanpage">Da dang fanpage</option>
+              </select>
+            </label>
+            <label>
+              Website
+              <select value={form.websiteProgress} onChange={(event) => updateField('websiteProgress', event.target.value)}>
+                <option value="">Chua chon</option>
+                <option value="Chua dang">Chua dang</option>
+                <option value="Cho bai website">Cho bai website</option>
+                <option value="Da dang website">Da dang website</option>
+              </select>
+            </label>
+            <label className="wide-field">
+              Link bai viet / file xuat
+              <input value={form.websiteUrl} onChange={(event) => updateField('websiteUrl', event.target.value)} />
+            </label>
+          </div>
+          <div className="canva-action-strip">
+            <a className="secondary-action" href="https://www.canva.com/design/" rel="noreferrer" target="_blank">
+              <Palette size={16} />
+              Open Canva
+            </a>
+            {form.latestProgressLink && (
+              <a className="primary-action" href={form.latestProgressLink} rel="noreferrer" target="_blank">
+                <ImagePlus size={16} />
+                Open design
+              </a>
+            )}
+          </div>
+
           <div className="photo-stage-tabs">
             {uploadStages.map(([value, label]) => (
               <button
