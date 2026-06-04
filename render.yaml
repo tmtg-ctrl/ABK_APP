@@ -1,0 +1,73 @@
+services:
+  - type: keyvalue
+    name: abk-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: web
+    runtime: docker
+    name: abk-python-workers
+    plan: free
+    dockerfilePath: ./backend/python-workers/Dockerfile
+    dockerContext: ./backend/python-workers
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: abk-redis
+          property: connectionString
+
+  - type: web
+    runtime: docker
+    name: abk-api-gateway
+    plan: free
+    dockerfilePath: ./backend/api-gateway/Dockerfile
+    dockerContext: ./backend/api-gateway
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: PYTHON_WORKERS_URL
+        fromService:
+          type: web
+          name: abk-python-workers
+          property: hostport
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: abk-redis
+          property: connectionString
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
+        sync: false
+      - key: CONSTRUCTION_SHEET_NAME
+        sync: false
+
+  - type: web
+    runtime: static
+    name: abk-frontend
+    plan: free
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -15,7 +15,9 @@ const errorHandler = require('./shared/middleware/error-handler.middleware');
 
 const app = express();
 
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+
+app.use(cors({ origin: corsOrigin }));
 app.use(morgan('combined'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));

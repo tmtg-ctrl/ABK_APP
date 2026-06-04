@@ -11,7 +11,14 @@ const {
   getUserTasks
 } = require('./task.service');
 
-const getPythonWorkersUrl = () => `http://${process.env.PYTHON_WORKERS_HOST}:${process.env.PYTHON_WORKERS_PORT}`;
+const getPythonWorkersUrl = () => {
+  const workerUrl = process.env.PYTHON_WORKERS_URL;
+  if (workerUrl) {
+    return workerUrl.startsWith('http') ? workerUrl : `http://${workerUrl}`;
+  }
+
+  return `http://${process.env.PYTHON_WORKERS_HOST}:${process.env.PYTHON_WORKERS_PORT}`;
+};
 
 exports.submitTask = async (req, res, next) => {
   try {
