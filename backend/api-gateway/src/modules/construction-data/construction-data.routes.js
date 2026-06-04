@@ -28,6 +28,7 @@ const upload = multer({
 router.use(authenticate);
 
 router.get('/', constructionDataController.listConstructionData);
+router.post('/', constructionDataController.createConstructionData);
 router.put('/:sheetRowNumber', constructionDataController.updateConstructionData);
 router.get('/:sheetRowNumber/photos', constructionDataController.listConstructionPhotos);
 router.get('/:sheetRowNumber/photos/file', constructionDataController.getConstructionPhotoFile);

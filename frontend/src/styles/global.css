@@ -747,11 +747,21 @@ select:focus {
 }
 
 .construction-layout {
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .construction-main-panel {
   min-width: 0;
+}
+
+.construction-summary {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.construction-quick-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .construction-toolbar {
@@ -828,7 +838,7 @@ select:focus {
 }
 
 .construction-data-table .table-row {
-  min-width: 940px;
+  min-width: 1180px;
 }
 
 .construction-cell {

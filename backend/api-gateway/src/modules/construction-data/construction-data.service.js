@@ -318,6 +318,49 @@ const allowedUpdateFields = [
   'alley'
 ];
 
+const createConstructionDataRow = async (payload, { year = '2026' } = {}) => {
+  const selectedYear = String(payload.year || year || '2026');
+  const { sheetName, rows, headerIndex, columns } = await readSheetRows(selectedYear);
+
+  if (!clean(payload.investorName) && !clean(payload.dataLink) && !clean(payload.zaloGroupName)) {
+    const error = new Error('At least one of investorName, dataLink, or zaloGroupName is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const headerWidth = Math.max(rows[headerIndex]?.length || 0, ...Object.values(columns).map((index) => index + 1));
+  const row = Array.from({ length: headerWidth }, () => '');
+
+  allowedUpdateFields.forEach((field) => {
+    if (
+      Object.prototype.hasOwnProperty.call(columns, field) &&
+      Object.prototype.hasOwnProperty.call(payload, field)
+    ) {
+      row[columns[field]] = payload[field] ?? '';
+    }
+  });
+
+  const sheets = getSheetsClient();
+  const response = await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `'${sheetName}'!A:AL`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: [row]
+    }
+  });
+
+  return {
+    created: true,
+    sheetId: SHEET_ID,
+    sheetName,
+    year: selectedYear,
+    updatedRange: response.data.updates?.updatedRange || null,
+    fields: allowedUpdateFields.filter((field) => Object.prototype.hasOwnProperty.call(payload, field))
+  };
+};
+
 const today = () =>
   new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
@@ -557,6 +600,7 @@ const saveConstructionPhotos = async (sheetRowNumber, files = [], { year = '2026
 
 module.exports = {
   getConstructionData,
+  createConstructionDataRow,
   listConstructionPhotos,
   resolveConstructionPhotoPath,
   updateConstructionDataRow,

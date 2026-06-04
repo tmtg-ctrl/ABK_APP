@@ -1,4 +1,5 @@
 const {
+  createConstructionDataRow,
   getConstructionData,
   listConstructionPhotos,
   resolveConstructionPhotoPath,
@@ -28,6 +29,21 @@ exports.updateConstructionData = async (req, res, next) => {
 
     res.status(200).json({
       message: 'Construction sheet row updated successfully',
+      result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createConstructionData = async (req, res, next) => {
+  try {
+    const result = await createConstructionDataRow(req.body, {
+      year: req.query.year
+    });
+
+    res.status(201).json({
+      message: 'Construction sheet row created successfully',
       result
     });
   } catch (error) {

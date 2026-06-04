@@ -7,6 +7,7 @@ import {
   ImagePlus,
   MapPin,
   Pencil,
+  Plus,
   RefreshCw,
   Save,
   Search,
@@ -118,6 +119,7 @@ export function ConstructionData({ token }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editingRecord, setEditingRecord] = useState(null);
+  const [creatingRecord, setCreatingRecord] = useState(false);
   const [showColumns, setShowColumns] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(() => {
     try {
@@ -191,15 +193,47 @@ export function ConstructionData({ token }) {
   return (
     <div className="module-layout construction-layout">
       <section className="panel construction-main-panel">
+        <div className="construction-summary">
+          <div className="module-note">
+            <FileSpreadsheet size={24} />
+            <h3>{sheetInfo?.sheetName || `Quan ly cong trinh ${year}`}</h3>
+            <p>Man hinh nay doc va cap nhat truc tiep vao tab cong trinh cua Google Sheet. Sheet van la nguon du lieu chinh, app chi giup loc, xem nhanh va sua dung cot.</p>
+          </div>
+          <div className="quick-list construction-quick-list">
+            <div>
+              <Building2 size={18} />
+              <span>{records.length} dong dang hien thi</span>
+            </div>
+            <div>
+              <FolderOpen size={18} />
+              <span>{counts.hasFolder} cong trinh da co link du lieu</span>
+            </div>
+            <div>
+              <RefreshCw size={18} />
+              <span>{counts.waiting} cong trinh co giai doan dang cho</span>
+            </div>
+            <div>
+              <Pencil size={18} />
+              <span>{counts.needShoot} cong trinh dang can len lich quay</span>
+            </div>
+          </div>
+        </div>
+
         <div className="section-heading">
           <div>
             <span className="eyebrow">Google Sheet ABK</span>
             <h3>Du lieu cong trinh {year}</h3>
           </div>
-          <button className="secondary-action" onClick={() => loadData(search, year)} disabled={loading}>
-            <RefreshCw className={loading ? 'spin' : ''} size={16} />
-            Refresh
-          </button>
+          <div className="row-tags">
+            <button className="primary-action small" onClick={() => setCreatingRecord(true)}>
+              <Plus size={16} />
+              New construction
+            </button>
+            <button className="secondary-action" onClick={() => loadData(search, year)} disabled={loading}>
+              <RefreshCw className={loading ? 'spin' : ''} size={16} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div className="construction-toolbar">
@@ -266,32 +300,6 @@ export function ConstructionData({ token }) {
         </div>
       </section>
 
-      <section className="panel">
-        <div className="module-note">
-          <FileSpreadsheet size={24} />
-          <h3>{sheetInfo?.sheetName || 'Quan ly cong trinh'}</h3>
-          <p>Man hinh nay doc va cap nhat truc tiep vao tab cong trinh cua Google Sheet. Sheet van la nguon du lieu chinh, app chi giup loc, xem nhanh va sua dung cot.</p>
-        </div>
-        <div className="quick-list">
-          <div>
-            <Building2 size={18} />
-            <span>{records.length} dong dang hien thi</span>
-          </div>
-          <div>
-            <FolderOpen size={18} />
-            <span>{counts.hasFolder} cong trinh da co link du lieu</span>
-          </div>
-          <div>
-            <RefreshCw size={18} />
-            <span>{counts.waiting} cong trinh co giai doan dang cho</span>
-          </div>
-          <div>
-            <Pencil size={18} />
-            <span>{counts.needShoot} cong trinh dang can len lich quay</span>
-          </div>
-        </div>
-      </section>
-
       {editingRecord && (
         <Modal className="construction-edit-modal" title="Cap nhat cong trinh" onClose={() => setEditingRecord(null)}>
           <ConstructionSheetForm
@@ -304,11 +312,26 @@ export function ConstructionData({ token }) {
           />
         </Modal>
       )}
+
+      {creatingRecord && (
+        <Modal className="construction-edit-modal" title="Them cong trinh moi" onClose={() => setCreatingRecord(false)}>
+          <ConstructionSheetForm
+            mode="create"
+            record={{ year }}
+            token={token}
+            onSaved={() => {
+              setCreatingRecord(false);
+              loadData(search, year);
+            }}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
 
-function ConstructionSheetForm({ record, token, onSaved }) {
+function ConstructionSheetForm({ mode = 'edit', record, token, onSaved }) {
+  const isCreating = mode === 'create';
   const [form, setForm] = useState({
     year: record.year || '2026',
     investorName: record.investorName || '',
@@ -344,7 +367,7 @@ function ConstructionSheetForm({ record, token, onSaved }) {
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   const loadExistingPhotos = async (stage = uploadStage) => {
-    if (!record.dataLink) {
+    if (isCreating || !record.dataLink) {
       setExistingPhotos((current) => {
         current.forEach((photo) => photo.previewUrl && URL.revokeObjectURL(photo.previewUrl));
         return [];
@@ -401,8 +424,12 @@ function ConstructionSheetForm({ record, token, onSaved }) {
     setError('');
 
     try {
-      await apiRequest(`/api/construction-data/${record.sheetRowNumber}?year=${record.year}`, {
-        method: 'PUT',
+      const endpoint = isCreating
+        ? `/api/construction-data?year=${form.year}`
+        : `/api/construction-data/${record.sheetRowNumber}?year=${record.year}`;
+
+      await apiRequest(endpoint, {
+        method: isCreating ? 'POST' : 'PUT',
         token,
         body: form
       });
@@ -454,9 +481,9 @@ function ConstructionSheetForm({ record, token, onSaved }) {
     <form className="construction-edit-form" onSubmit={submit}>
       <div className="construction-edit-hero">
         <div>
-          <span>Dong {record.sheetRowNumber} - {record.year}</span>
-          <h3>{record.investorName || 'Chua co ten'}</h3>
-          <p>{record.dataLink || 'Chua co LINK DU LIEU'}</p>
+          <span>{isCreating ? 'Dong moi' : `Dong ${record.sheetRowNumber}`} - {form.year}</span>
+          <h3>{form.investorName || 'Chua co ten'}</h3>
+          <p>{form.dataLink || 'Chua co LINK DU LIEU'}</p>
         </div>
         <Badge value={normalizeStatus(form.imageProgress || form.dataStatus || form.shootingStatus)} />
       </div>
@@ -501,11 +528,11 @@ function ConstructionSheetForm({ record, token, onSaved }) {
           <div className="edit-field-grid">
             <label>
               Dia chi cu / Khu vuc
-              <input value={form.oldAddress || form.district} onChange={(event) => updateField(record.year === '2025' ? 'district' : 'oldAddress', event.target.value)} />
+              <input value={form.oldAddress || form.district} onChange={(event) => updateField(form.year === '2025' ? 'district' : 'oldAddress', event.target.value)} />
             </label>
             <label>
               Dia chi moi
-              <input value={form.newAddress || form.address} onChange={(event) => updateField(record.year === '2025' ? 'address' : 'newAddress', event.target.value)} />
+              <input value={form.newAddress || form.address} onChange={(event) => updateField(form.year === '2025' ? 'address' : 'newAddress', event.target.value)} />
             </label>
             <label>
               Phan loai
@@ -570,6 +597,7 @@ function ConstructionSheetForm({ record, token, onSaved }) {
           </div>
         </section>
 
+        {!isCreating && (
         <section className="edit-section media-edit-section">
           <div className="photo-stage-tabs">
             {uploadStages.map(([value, label]) => (
@@ -629,13 +657,14 @@ function ConstructionSheetForm({ record, token, onSaved }) {
             )}
           </div>
         </section>
+        )}
       </div>
 
       <div className="edit-modal-footer">
         {error && <InlineError message={error} />}
         <button className="primary-action" disabled={saving}>
           {saving ? <RefreshCw className="spin" size={18} /> : <Save size={18} />}
-          Luu thong tin vao Google Sheet
+          {isCreating ? 'Them cong trinh vao Google Sheet' : 'Luu thong tin vao Google Sheet'}
         </button>
       </div>
     </form>
