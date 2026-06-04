@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  SlidersHorizontal,
   Upload,
   Users
 } from 'lucide-react';
@@ -37,6 +38,60 @@ const uploadStages = [
   ['finishing', '6. Hoan thien']
 ];
 
+const constructionColumnOptions = [
+  { key: 'investorName', label: 'Chu dau tu', render: (record) => (
+    <div>
+      <strong>{record.investorName || 'Chua co ten'}</strong>
+      <span>{record.oldAddress || record.newAddress || record.address || record.district || 'Chua co dia chi'}</span>
+    </div>
+  ) },
+  { key: 'dataLink', label: 'Link du lieu', render: (record) => (
+    <div className="folder-cell">
+      <FolderOpen size={15} />
+      <span title={record.dataLink}>{record.dataLink || 'Chua gan link'}</span>
+    </div>
+  ) },
+  { key: 'zaloGroupName', label: 'Nhom Zalo', render: (record) => (
+    <div>
+      <strong>{record.zaloGroupName || '-'}</strong>
+      <span>{record.gdk || '-'}</span>
+    </div>
+  ) },
+  { key: 'shootingStatus', label: 'Quay', render: (record) => record.shootingStatus || '-' },
+  { key: 'savedImageAt', label: 'Ngay luu anh', render: (record) => record.savedImageAt || '-' },
+  { key: 'nextSaveAt', label: 'Ngay luu tiep', render: (record) => record.nextSaveAt || '-' },
+  { key: 'stages', label: 'Giai doan anh', render: (record) => (
+    <div className="stage-chip-list">
+      {stageFields
+        .filter(([field]) => record[field])
+        .slice(0, 4)
+        .map(([field, label]) => (
+          <span key={field} title={record[field]}>
+            {label}: {record[field]}
+          </span>
+        ))}
+      {!stageFields.some(([field]) => record[field]) && <span>Chua co</span>}
+    </div>
+  ) },
+  { key: 'imageProgress', label: 'Tien do hinh', render: (record) => record.imageProgress || '-' },
+  { key: 'dataStatus', label: 'Tinh trang DL', render: (record) => record.dataStatus || '-' },
+  { key: 'classification', label: 'Phan loai', render: (record) => record.classification || '-' },
+  { key: 'area', label: 'Dien tich', render: (record) => record.area || '-' },
+  { key: 'contractValue', label: 'Gia tri HD', render: (record) => record.contractValue || '-' },
+  { key: 'note', label: 'Ghi chu', render: (record) => record.note || '-' },
+  { key: 'status', label: 'Trang thai', render: (record) => (
+    <Badge value={normalizeStatus(record.imageProgress || record.dataStatus || record.shootingStatus)} />
+  ) },
+  { key: 'action', label: 'Action', render: (record, setEditingRecord) => (
+    <button className="secondary-action compact-action" onClick={() => setEditingRecord(record)}>
+      <Pencil size={15} />
+      Edit
+    </button>
+  ) }
+];
+
+const defaultConstructionColumns = ['investorName', 'dataLink', 'zaloGroupName', 'stages', 'status', 'action'];
+
 const normalizeStatus = (value) => {
   const text = String(value || '').toLowerCase();
 
@@ -63,6 +118,30 @@ export function ConstructionData({ token }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editingRecord, setEditingRecord] = useState(null);
+  const [showColumns, setShowColumns] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('abk_construction_columns');
+      const parsed = saved ? JSON.parse(saved) : null;
+      return Array.isArray(parsed) && parsed.length ? parsed : defaultConstructionColumns;
+    } catch {
+      return defaultConstructionColumns;
+    }
+  });
+
+  const activeColumns = constructionColumnOptions.filter((column) => visibleColumns.includes(column.key));
+  const tableTemplate = activeColumns.map((column) => (column.key === 'action' ? '110px' : 'minmax(150px, 1fr)')).join(' ');
+
+  const toggleColumn = (key) => {
+    setVisibleColumns((current) => {
+      const next = current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key];
+      const safeNext = next.includes('action') ? next : [...next, 'action'];
+      window.localStorage.setItem('abk_construction_columns', JSON.stringify(safeNext));
+      return safeNext;
+    });
+  };
 
   const loadData = async (nextSearch = search, nextYear = year) => {
     setLoading(true);
@@ -143,49 +222,44 @@ export function ConstructionData({ token }) {
             <Search size={17} />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tim ten chu dau tu, GDK, Zalo, khu vuc" />
           </form>
+          <div className="column-picker">
+            <button className="secondary-action" onClick={() => setShowColumns((current) => !current)} type="button">
+              <SlidersHorizontal size={16} />
+              Columns
+            </button>
+            {showColumns && (
+              <div className="column-picker-menu">
+                {constructionColumnOptions.map((column) => (
+                  <label key={column.key}>
+                    <input
+                      checked={visibleColumns.includes(column.key)}
+                      disabled={column.key === 'action'}
+                      onChange={() => toggleColumn(column.key)}
+                      type="checkbox"
+                    />
+                    {column.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {error && <InlineError message={error} />}
 
         <div className="data-table construction-data-table">
-          <div className="table-row table-head construction-table-row">
-            <span>Chu dau tu</span>
-            <span>Link du lieu</span>
-            <span>Zalo / GDK</span>
-            <span>Giai doan anh</span>
-            <span>Trang thai</span>
-            <span>Action</span>
+          <div className="table-row table-head construction-table-row" style={{ gridTemplateColumns: tableTemplate }}>
+            {activeColumns.map((column) => (
+              <span key={column.key}>{column.label}</span>
+            ))}
           </div>
           {records.map((record) => (
-            <div className="table-row construction-table-row" key={record.id}>
-              <div>
-                <strong>{record.investorName || 'Chua co ten'}</strong>
-                <span>{record.oldAddress || record.newAddress || record.address || record.district || 'Chua co dia chi'}</span>
-              </div>
-              <div className="folder-cell">
-                <FolderOpen size={15} />
-                <span title={record.dataLink}>{record.dataLink || 'Chua gan link'}</span>
-              </div>
-              <div>
-                <strong>{record.zaloGroupName || '-'}</strong>
-                <span>{record.gdk || '-'}</span>
-              </div>
-              <div className="stage-chip-list">
-                {stageFields
-                  .filter(([field]) => record[field])
-                  .slice(0, 4)
-                  .map(([field, label]) => (
-                    <span key={field} title={record[field]}>
-                      {label}: {record[field]}
-                    </span>
-                  ))}
-                {!stageFields.some(([field]) => record[field]) && <span>Chua co</span>}
-              </div>
-              <Badge value={normalizeStatus(record.imageProgress || record.dataStatus || record.shootingStatus)} />
-              <button className="secondary-action compact-action" onClick={() => setEditingRecord(record)}>
-                <Pencil size={15} />
-                Edit
-              </button>
+            <div className="table-row construction-table-row" key={record.id} style={{ gridTemplateColumns: tableTemplate }}>
+              {activeColumns.map((column) => (
+                <div className="construction-cell" key={column.key}>
+                  {column.render(record, setEditingRecord)}
+                </div>
+              ))}
             </div>
           ))}
           {!loading && !records.length && <EmptyState text="Khong tim thay cong trinh nao." />}

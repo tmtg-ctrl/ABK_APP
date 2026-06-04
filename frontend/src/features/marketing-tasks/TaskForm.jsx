@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { InlineError } from '../../shared/components/InlineError';
-import { PRIORITY_OPTIONS, priorityLabels } from '../../shared/constants/marketing';
+import {
+  MARKETING_TEAMS,
+  PRIORITY_OPTIONS,
+  WORK_TYPES_BY_TEAM,
+  priorityLabels,
+  teamLabels,
+  workTypeLabels
+} from '../../shared/constants/marketing';
 import { apiRequest } from '../../shared/services/api';
 
 export function TaskForm({ employees, isManager, token, onSaved }) {
@@ -9,6 +16,8 @@ export function TaskForm({ employees, isManager, token, onSaved }) {
     title: '',
     description: '',
     priority: 'medium',
+    team: 'media',
+    work_type: 'photo_shoot',
     deadline: '',
     assignee_id: '',
     status: 'todo'
@@ -48,6 +57,34 @@ export function TaskForm({ employees, isManager, token, onSaved }) {
         Description
         <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
       </label>
+      <div className="two-column">
+        <label>
+          Team
+          <select
+            value={form.team}
+            onChange={(event) => {
+              const team = event.target.value;
+              setForm({
+                ...form,
+                team,
+                work_type: WORK_TYPES_BY_TEAM[team]?.[0] || ''
+              });
+            }}
+          >
+            {MARKETING_TEAMS.map((team) => (
+              <option value={team} key={team}>{teamLabels[team]}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Work type
+          <select value={form.work_type} onChange={(event) => setForm({ ...form, work_type: event.target.value })}>
+            {(WORK_TYPES_BY_TEAM[form.team] || []).map((workType) => (
+              <option value={workType} key={workType}>{workTypeLabels[workType]}</option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="two-column">
         <label>
           Priority

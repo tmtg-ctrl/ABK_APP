@@ -3,15 +3,21 @@ import { Plus, Search } from 'lucide-react';
 import { Badge } from '../../shared/components/Badge';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { Modal } from '../../shared/components/Modal';
+import { MARKETING_TEAMS, teamLabels, workTypeLabels } from '../../shared/constants/marketing';
 import { TaskDetail } from './TaskDetail';
 import { TaskForm } from './TaskForm';
 
 export function TaskWorkspace({ tasks, employees, selectedTask, isManager, token, currentUser, onChanged, onSelect }) {
   const [query, setQuery] = useState('');
+  const [teamFilter, setTeamFilter] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
 
   const filteredTasks = tasks.filter((task) => {
-    const haystack = `${task.title} ${task.description} ${task.status} ${task.priority}`.toLowerCase();
+    if (teamFilter !== 'all' && task.team !== teamFilter) {
+      return false;
+    }
+
+    const haystack = `${task.title} ${task.description} ${task.status} ${task.priority} ${task.team} ${task.work_type}`.toLowerCase();
     return haystack.includes(query.toLowerCase());
   });
 
@@ -29,6 +35,16 @@ export function TaskWorkspace({ tasks, employees, selectedTask, isManager, token
           <Search size={17} />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" />
         </div>
+        <div className="team-filter-tabs" aria-label="Marketing team filter">
+          <button className={teamFilter === 'all' ? 'active' : ''} onClick={() => setTeamFilter('all')} type="button">
+            Tat ca
+          </button>
+          {MARKETING_TEAMS.map((team) => (
+            <button className={teamFilter === team ? 'active' : ''} key={team} onClick={() => setTeamFilter(team)} type="button">
+              {teamLabels[team]}
+            </button>
+          ))}
+        </div>
         <div className="task-list">
           {filteredTasks.map((task) => (
             <button
@@ -41,6 +57,8 @@ export function TaskWorkspace({ tasks, employees, selectedTask, isManager, token
                 <span>{task.description || 'No description'}</span>
               </div>
               <div className="row-tags">
+                <Badge value={teamLabels[task.team] || task.team || 'Media'} />
+                {task.work_type && <Badge value={workTypeLabels[task.work_type] || task.work_type} />}
                 <Badge value={task.status} />
                 <Badge value={task.priority} tone={task.priority} />
               </div>

@@ -13,6 +13,8 @@ const normalizeMarketingTask = (task) => {
     title: task.data?.title || '',
     description: task.data?.description || '',
     priority: task.data?.priority || 'medium',
+    team: task.data?.team || 'media',
+    work_type: task.data?.work_type || null,
     assignee_id: task.data?.assignee_id || null,
     deadline: task.data?.deadline || null,
     status: task.status,
@@ -23,7 +25,7 @@ const normalizeMarketingTask = (task) => {
   };
 };
 
-const createMarketingTask = async ({ title, description, priority, assigneeId, deadline, status, userId }) => {
+const createMarketingTask = async ({ title, description, priority, team, workType, assigneeId, deadline, status, userId }) => {
   const now = new Date().toISOString();
   const taskId = crypto.randomUUID();
 
@@ -31,6 +33,8 @@ const createMarketingTask = async ({ title, description, priority, assigneeId, d
     title,
     description: description || '',
     priority: priority || 'medium',
+    team: team || 'media',
+    work_type: workType || null,
     assignee_id: assigneeId || null,
     deadline: deadline || null,
     department: 'marketing',
@@ -100,6 +104,8 @@ const updateMarketingTask = async (taskId, updates) => {
     title: updates.title ?? existing.title,
     description: updates.description ?? existing.description,
     priority: updates.priority ?? existing.priority,
+    team: updates.team ?? existing.team,
+    work_type: updates.workType ?? existing.work_type,
     assignee_id: updates.assigneeId ?? existing.assignee_id,
     deadline: updates.deadline ?? existing.deadline,
     department: 'marketing',

@@ -8,6 +8,7 @@ const {
 
 const VALID_STATUSES = new Set(['todo', 'doing', 'review', 'approved', 'done']);
 const VALID_PRIORITIES = new Set(['low', 'medium', 'high']);
+const VALID_TEAMS = new Set(['media', 'sale', 'content']);
 const MANAGER_ROLES = new Set(['admin', 'marketing_manager', 'department_manager']);
 
 const getUserRole = (req) => req.user?.app_metadata?.role || 'staff';
@@ -38,7 +39,7 @@ exports.createTask = async (req, res, next) => {
       return;
     }
 
-    const { title, description, priority, assignee_id, deadline, status } = req.body;
+    const { title, description, priority, team, work_type, assignee_id, deadline, status } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'title is required' });
@@ -52,10 +53,16 @@ exports.createTask = async (req, res, next) => {
       return res.status(400).json({ error: 'status must be todo, doing, review, approved, or done' });
     }
 
+    if (team && !VALID_TEAMS.has(team)) {
+      return res.status(400).json({ error: 'team must be media, sale, or content' });
+    }
+
     const task = await createMarketingTask({
       title,
       description,
       priority,
+      team,
+      workType: work_type,
       assigneeId: assignee_id,
       deadline,
       status,
@@ -129,7 +136,7 @@ exports.updateTask = async (req, res, next) => {
       return res.status(403).json({ error: 'You do not have access to this marketing task' });
     }
 
-    const { title, description, priority, assignee_id, deadline, status } = req.body;
+    const { title, description, priority, team, work_type, assignee_id, deadline, status } = req.body;
 
     if (assignee_id !== undefined && !canManageMarketing(req)) {
       return res.status(403).json({ error: 'Marketing manager permission required to assign tasks' });
@@ -143,10 +150,16 @@ exports.updateTask = async (req, res, next) => {
       return res.status(400).json({ error: 'status must be todo, doing, review, approved, or done' });
     }
 
+    if (team && !VALID_TEAMS.has(team)) {
+      return res.status(400).json({ error: 'team must be media, sale, or content' });
+    }
+
     const task = await updateMarketingTask(req.params.taskId, {
       title,
       description,
       priority,
+      team,
+      workType: work_type,
       assigneeId: assignee_id,
       deadline,
       status

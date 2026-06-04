@@ -2,13 +2,24 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Badge } from '../../shared/components/Badge';
 import { InlineError } from '../../shared/components/InlineError';
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, priorityLabels, statusLabels } from '../../shared/constants/marketing';
+import {
+  MARKETING_TEAMS,
+  PRIORITY_OPTIONS,
+  STATUS_OPTIONS,
+  WORK_TYPES_BY_TEAM,
+  priorityLabels,
+  statusLabels,
+  teamLabels,
+  workTypeLabels
+} from '../../shared/constants/marketing';
 import { apiRequest } from '../../shared/services/api';
 
 export function TaskDetail({ task, employees, isManager, token, currentUser, onChanged }) {
   const [form, setForm] = useState({
     status: task.status,
     priority: task.priority,
+    team: task.team || 'media',
+    work_type: task.work_type || WORK_TYPES_BY_TEAM[task.team || 'media']?.[0] || '',
     deadline: task.deadline || '',
     assignee_id: task.assignee_id || ''
   });
@@ -18,6 +29,8 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
     setForm({
       status: task.status,
       priority: task.priority,
+      team: task.team || 'media',
+      work_type: task.work_type || WORK_TYPES_BY_TEAM[task.team || 'media']?.[0] || '',
       deadline: task.deadline || '',
       assignee_id: task.assignee_id || ''
     });
@@ -32,6 +45,8 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
         body: {
           status: form.status,
           priority: form.priority,
+          team: form.team,
+          work_type: form.work_type,
           deadline: form.deadline,
           assignee_id: isManager ? form.assignee_id || null : undefined
         }
@@ -54,6 +69,8 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
       <div className="detail-meta">
         <Badge value={task.status} />
         <Badge value={task.priority} tone={task.priority} />
+        <Badge value={teamLabels[task.team] || task.team || 'Media'} />
+        {task.work_type && <Badge value={workTypeLabels[task.work_type] || task.work_type} />}
         <span>{task.deadline || 'No deadline'}</span>
       </div>
       <div className="form-stack">
@@ -71,6 +88,34 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
             <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
               {PRIORITY_OPTIONS.map((priority) => (
                 <option value={priority} key={priority}>{priorityLabels[priority]}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="two-column">
+          <label>
+            Team
+            <select
+              value={form.team}
+              onChange={(event) => {
+                const team = event.target.value;
+                setForm({
+                  ...form,
+                  team,
+                  work_type: WORK_TYPES_BY_TEAM[team]?.[0] || ''
+                });
+              }}
+            >
+              {MARKETING_TEAMS.map((team) => (
+                <option value={team} key={team}>{teamLabels[team]}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Work type
+            <select value={form.work_type} onChange={(event) => setForm({ ...form, work_type: event.target.value })}>
+              {(WORK_TYPES_BY_TEAM[form.team] || []).map((workType) => (
+                <option value={workType} key={workType}>{workTypeLabels[workType]}</option>
               ))}
             </select>
           </label>
