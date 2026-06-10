@@ -14,6 +14,7 @@ router.post('/weekly-plans', campaignController.createWeeklyPlan);
 router.put('/weekly-plans/:planId', campaignController.updateWeeklyPlan);
 router.post('/weekly-plans/:planId/allocations', campaignController.addAllocation);
 router.put('/weekly-plans/:planId/allocations/:allocationId', campaignController.updateAllocation);
+router.delete('/weekly-plans/:planId/allocations/:allocationId', campaignController.removeAllocation);
 router.post('/seed-demo', campaignController.seedDemo);
 
 module.exports = router;

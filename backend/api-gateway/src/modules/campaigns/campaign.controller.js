@@ -143,6 +143,13 @@ exports.createWeeklyPlan = async (req, res, next) => {
     if (req.body.status && !PLAN_STATUSES.has(req.body.status)) {
       return res.status(400).json({ error: 'invalid weekly plan status' });
     }
+    const existing = await campaignService.getWeeklyPlanByWeekStart(req.body.week_start);
+    if (existing) {
+      return res.status(409).json({
+        error: 'A weekly plan already exists for this week',
+        plan: existing
+      });
+    }
     const plan = await campaignService.createWeeklyPlan({
       weekStart: req.body.week_start,
       weekEnd: req.body.week_end,
@@ -191,6 +198,9 @@ exports.addAllocation = async (req, res, next) => {
     });
     if (result.reason === 'plan_not_found') return res.status(404).json({ error: 'Weekly plan not found' });
     if (result.reason === 'task_not_found') return res.status(404).json({ error: 'Marketing task not found' });
+    if (result.reason === 'plan_locked') {
+      return res.status(409).json({ error: 'Weekly plan is locked; reopen planning before changing allocations' });
+    }
     if (result.reason === 'duplicate_task') {
       return res.status(409).json({ error: 'Task is already included in this weekly plan' });
     }
@@ -215,8 +225,29 @@ exports.updateAllocation = async (req, res, next) => {
       }
     );
     if (result.reason === 'plan_not_found') return res.status(404).json({ error: 'Weekly plan not found' });
+    if (result.reason === 'plan_locked') {
+      return res.status(409).json({ error: 'Weekly plan is locked; reopen planning before changing allocations' });
+    }
     if (result.reason === 'allocation_not_found') return res.status(404).json({ error: 'Allocation not found' });
     res.status(200).json({ message: 'Weekly allocation updated successfully', ...result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.removeAllocation = async (req, res, next) => {
+  try {
+    if (!requireMarketing(req, res)) return;
+    const result = await campaignService.removeWeeklyAllocation(
+      req.params.planId,
+      req.params.allocationId
+    );
+    if (result.reason === 'plan_not_found') return res.status(404).json({ error: 'Weekly plan not found' });
+    if (result.reason === 'plan_locked') {
+      return res.status(409).json({ error: 'Weekly plan is locked; reopen planning before changing allocations' });
+    }
+    if (result.reason === 'allocation_not_found') return res.status(404).json({ error: 'Allocation not found' });
+    res.status(200).json({ message: 'Task removed from weekly plan', ...result });
   } catch (error) {
     next(error);
   }

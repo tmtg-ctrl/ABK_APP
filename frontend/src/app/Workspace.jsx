@@ -20,6 +20,7 @@ import { Dashboard } from '../features/dashboard/Dashboard';
 import { Employees } from '../features/employees/Employees';
 import { MarketingPosts } from '../features/marketing-posts/MarketingPosts';
 import { CampaignModule } from '../features/campaign-projects/CampaignModule';
+import { WeeklyPlanningModule } from '../features/weekly-planning/WeeklyPlanningModule';
 import { TaskWorkspace } from '../features/marketing-tasks/TaskWorkspace';
 import { MediaWorkspace } from '../features/media-workspace/MediaWorkspace';
 import { InlineError } from '../shared/components/InlineError';
@@ -48,6 +49,7 @@ export function Workspace({ session, onLogout }) {
   const viewTitles = {
     'marketing-dashboard': 'Dashboard',
     'marketing-campaign-demo': 'Campaign / Project',
+    'marketing-weekly-planning': 'Cong viec tuan',
     'marketing-media': 'Media Workspace',
     'marketing-posts': 'Quan ly bai dang',
     'marketing-construction': 'Du lieu cong trinh',
@@ -125,6 +127,14 @@ export function Workspace({ session, onLogout }) {
                   collapsed={sidebarCollapsed}
                 >
                   Campaign / Project
+                </NavButton>
+                <NavButton
+                  icon={CalendarDays}
+                  active={view === 'marketing-weekly-planning'}
+                  onClick={() => setView('marketing-weekly-planning')}
+                  collapsed={sidebarCollapsed}
+                >
+                  Cong viec tuan
                 </NavButton>
                 <NavButton
                   icon={Image}
@@ -221,8 +231,16 @@ export function Workspace({ session, onLogout }) {
         {view === 'marketing-campaign-demo' && (
           <CampaignModule
             token={session.token}
+            isManager={isManager}
+            onWorkspaceChanged={loadData}
+          />
+        )}
+        {view === 'marketing-weekly-planning' && (
+          <WeeklyPlanningModule
+            token={session.token}
             currentUser={session.user}
             isManager={isManager}
+            employees={employees}
             onWorkspaceChanged={loadData}
           />
         )}

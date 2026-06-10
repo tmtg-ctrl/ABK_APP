@@ -8,6 +8,7 @@ jest.mock('../modules/campaigns/campaign.service', () => ({
   getProjectById: jest.fn(),
   getPhaseById: jest.fn(),
   getWeeklyPlanById: jest.fn(),
+  getWeeklyPlanByWeekStart: jest.fn(),
   createProject: jest.fn(),
   updateProject: jest.fn(),
   createPhase: jest.fn(),
@@ -16,6 +17,7 @@ jest.mock('../modules/campaigns/campaign.service', () => ({
   updateWeeklyPlan: jest.fn(),
   addWeeklyAllocation: jest.fn(),
   updateWeeklyAllocation: jest.fn(),
+  removeWeeklyAllocation: jest.fn(),
   seedDemoWorkspace: jest.fn()
 }));
 
@@ -102,5 +104,53 @@ describe('Campaign Controller', () => {
     expect(res.json).toHaveBeenCalledWith({
       error: 'Task is already included in this weekly plan'
     });
+  });
+
+  it('prevents creating a second plan for the same week', async () => {
+    campaignService.getWeeklyPlanByWeekStart.mockResolvedValue({ id: 'plan-1' });
+    const req = {
+      user: managerUser,
+      body: { week_start: '2026-06-08', week_end: '2026-06-14' }
+    };
+    const res = createResponse();
+
+    await campaignController.createWeeklyPlan(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(campaignService.createWeeklyPlan).not.toHaveBeenCalled();
+  });
+
+  it('removes a task allocation from a weekly plan', async () => {
+    campaignService.removeWeeklyAllocation.mockResolvedValue({
+      plan: { id: 'plan-1', allocations: [] },
+      allocation: { id: 'allocation-1', task_id: 'task-1' }
+    });
+    const req = {
+      user: staffUser,
+      params: { planId: 'plan-1', allocationId: 'allocation-1' }
+    };
+    const res = createResponse();
+
+    await campaignController.removeAllocation(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(campaignService.removeWeeklyAllocation).toHaveBeenCalledWith('plan-1', 'allocation-1');
+  });
+
+  it('rejects allocation changes after the weekly plan is locked', async () => {
+    campaignService.updateWeeklyAllocation.mockResolvedValue({
+      reason: 'plan_locked',
+      plan: { id: 'plan-1', status: 'committed' }
+    });
+    const req = {
+      user: staffUser,
+      params: { planId: 'plan-1', allocationId: 'allocation-1' },
+      body: { planned_date: '2026-06-10' }
+    };
+    const res = createResponse();
+
+    await campaignController.updateAllocation(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
   });
 });

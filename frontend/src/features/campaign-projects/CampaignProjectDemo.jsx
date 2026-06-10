@@ -230,8 +230,7 @@ const boardColumns = [
 const views = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'board', label: 'Board', icon: KanbanSquare },
-  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
-  { id: 'weekly', label: 'Weekly plan', icon: CalendarDays }
+  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare }
 ];
 
 const getDateIndex = (date) => Math.round((new Date(`${date}T00:00:00`) - TIMELINE_START) / DAY_MS);
@@ -662,7 +661,6 @@ export function CampaignProjectDemo({
         <BoardView tasks={projectTasks} onMoveTask={moveTask} focusTaskId={focusTaskId} />
       )}
       {activeView === 'timeline' && <TimelineView tasks={projectTasks} />}
-      {activeView === 'weekly' && <WeeklyView tasks={projectTasks} />}
     </div>
   );
 }

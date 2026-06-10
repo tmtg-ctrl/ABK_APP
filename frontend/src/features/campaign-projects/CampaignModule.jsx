@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FolderKanban, RefreshCw, Sparkles } from 'lucide-react';
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
 import { apiRequest } from '../../shared/services/api';
 import { CampaignPortfolio } from './CampaignPortfolio';
 import { CampaignProjectDemo } from './CampaignProjectDemo';
+import { useCampaignWorkspace } from './useCampaignWorkspace';
 
 const emptyProject = {
   code: '',
@@ -14,21 +15,6 @@ const emptyProject = {
   start_date: '',
   end_date: '',
   status: 'planning'
-};
-
-const healthLabels = {
-  on_track: 'Dung tien do',
-  at_risk: 'Can theo doi',
-  off_track: 'Co rui ro'
-};
-
-const formatWeekLabel = (plan) => {
-  if (!plan?.week_start || !plan?.week_end) return '';
-  const format = (date) => {
-    const [, month, day] = date.split('-');
-    return `${day}/${month}`;
-  };
-  return `${format(plan.week_start)} - ${format(plan.week_end)}`;
 };
 
 function ProjectForm({ token, onSaved, onClose }) {
@@ -106,91 +92,38 @@ function ProjectForm({ token, onSaved, onClose }) {
   );
 }
 
-export function CampaignModule({ token, currentUser, isManager, onWorkspaceChanged }) {
-  const [workspace, setWorkspace] = useState({
-    projects: [],
-    phases: [],
-    tasks: [],
-    weekly_plans: []
-  });
+export function CampaignModule({ token, isManager, onWorkspaceChanged }) {
+  const {
+    workspace,
+    projects: rawProjects,
+    tasks,
+    loading,
+    error: loadError,
+    loadWorkspace
+  } = useCampaignWorkspace(token);
   const [screen, setScreen] = useState('portfolio');
   const [selection, setSelection] = useState({ projectId: null, tab: 'overview', taskId: null });
   const [showCreate, setShowCreate] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
-  const [error, setError] = useState('');
-
-  const loadWorkspace = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await apiRequest('/api/marketing/projects', { token });
-      setWorkspace({
-        projects: data.projects || [],
-        phases: data.phases || [],
-        tasks: data.tasks || [],
-        weekly_plans: data.weekly_plans || []
-      });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadWorkspace();
-  }, []);
-
-  const projects = useMemo(() => workspace.projects.map((project) => ({
+  const [actionError, setActionError] = useState('');
+  const projects = rawProjects.map((project) => ({
     ...project,
-    owner: project.owner_name || 'Chua gan owner',
-    start: project.start_date || '',
-    end: project.end_date || '',
-    budget: project.budget ? `${project.budget.toLocaleString('vi-VN')} VND` : 'Chua cap nhat',
-    health: healthLabels[project.health] || project.health,
-    progress: Number(project.progress || 0)
-  })), [workspace.projects]);
-
-  const tasks = useMemo(() => {
-    const phaseById = Object.fromEntries(workspace.phases.map((phase) => [phase.id, phase]));
-    const projectById = Object.fromEntries(projects.map((project) => [project.id, project]));
-    return workspace.tasks.map((task) => {
-      const project = projectById[task.project_id];
-      return {
-        ...task,
-        projectId: task.project_id,
-        phase: phaseById[task.phase_id]?.name || (task.project_id ? 'Chua xep phase' : 'Van hanh'),
-        owner: task.owner_name || task.assignee_id || 'Chua giao',
-        assigneeId: task.assignee_id,
-        team: task.team || 'all',
-        start: task.start_date || task.deadline || project?.start || new Date().toISOString().slice(0, 10),
-        end: task.deadline || task.start_date || project?.end || new Date().toISOString().slice(0, 10),
-        dependency: task.dependency_id,
-        milestone: task.item_type === 'milestone',
-        progress: Number(task.progress || (task.status === 'done' ? 100 : 0))
-      };
-    });
-  }, [workspace.tasks, workspace.phases, projects]);
-
-  const currentPlan = useMemo(
-    () => [...workspace.weekly_plans].sort((a, b) => (b.week_start || '').localeCompare(a.week_start || ''))[0],
-    [workspace.weekly_plans]
-  );
-  const weeklyTaskIds = currentPlan?.allocations?.map((allocation) => allocation.task_id);
+    budget: project.budget_label,
+    health: project.health_label
+  }));
 
   const seedDemo = async () => {
     setSeeding(true);
-    setError('');
+    setActionError('');
     try {
-      const result = await apiRequest('/api/marketing/projects/seed-demo', {
+      await apiRequest('/api/marketing/projects/seed-demo', {
         method: 'POST',
         token
       });
-      setWorkspace(result.workspace);
+      await loadWorkspace();
       onWorkspaceChanged?.();
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message);
     } finally {
       setSeeding(false);
     }
@@ -212,7 +145,7 @@ export function CampaignModule({ token, currentUser, isManager, onWorkspaceChang
 
   return (
     <>
-      {error && <InlineError message={error} />}
+      {(loadError || actionError) && <InlineError message={loadError || actionError} />}
       {!projects.length ? (
         <section className="panel campaign-empty-workspace">
           <FolderKanban size={36} />
@@ -229,9 +162,6 @@ export function CampaignModule({ token, currentUser, isManager, onWorkspaceChang
         <CampaignPortfolio
           projects={projects}
           tasks={tasks}
-          weeklyTaskIds={weeklyTaskIds}
-          weekLabel={formatWeekLabel(currentPlan)}
-          currentUser={currentUser}
           onCreateCampaign={() => isManager && setShowCreate(true)}
           onToggleTask={updateTaskStatus}
           onOpenCampaign={(projectId) => {

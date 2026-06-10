@@ -152,6 +152,10 @@ const listWeeklyPlans = () => listRecords(WEEKLY_PLAN_TYPE, normalizeWeeklyPlan)
 const getProjectById = (projectId) => getRecord(projectId, PROJECT_TYPE, normalizeProject);
 const getPhaseById = (phaseId) => getRecord(phaseId, PHASE_TYPE, normalizePhase);
 const getWeeklyPlanById = (planId) => getRecord(planId, WEEKLY_PLAN_TYPE, normalizeWeeklyPlan);
+const getWeeklyPlanByWeekStart = async (weekStart) => {
+  const plans = await listWeeklyPlans();
+  return plans.find((plan) => plan.week_start === weekStart) || null;
+};
 
 const createProject = (input) => createRecord({
   taskType: PROJECT_TYPE,
@@ -258,6 +262,9 @@ const addWeeklyAllocation = async (planId, input) => {
 
   if (!plan) return { plan: null, reason: 'plan_not_found' };
   if (!task) return { plan, reason: 'task_not_found' };
+  if (['committed', 'closed'].includes(plan.status)) {
+    return { plan, reason: 'plan_locked' };
+  }
   if (plan.allocations.some((allocation) => allocation.task_id === input.taskId)) {
     return { plan, reason: 'duplicate_task' };
   }
@@ -285,6 +292,9 @@ const addWeeklyAllocation = async (planId, input) => {
 const updateWeeklyAllocation = async (planId, allocationId, input) => {
   const plan = await getWeeklyPlanById(planId);
   if (!plan) return { plan: null, reason: 'plan_not_found' };
+  if (['committed', 'closed'].includes(plan.status)) {
+    return { plan, reason: 'plan_locked' };
+  }
 
   const existing = plan.allocations.find((allocation) => allocation.id === allocationId);
   if (!existing) return { plan, reason: 'allocation_not_found' };
@@ -312,6 +322,28 @@ const updateWeeklyAllocation = async (planId, allocationId, input) => {
   });
 
   return { plan: updated };
+};
+
+const removeWeeklyAllocation = async (planId, allocationId) => {
+  const plan = await getWeeklyPlanById(planId);
+  if (!plan) return { plan: null, reason: 'plan_not_found' };
+  if (['committed', 'closed'].includes(plan.status)) {
+    return { plan, reason: 'plan_locked' };
+  }
+
+  const allocation = plan.allocations.find((item) => item.id === allocationId);
+  if (!allocation) return { plan, reason: 'allocation_not_found' };
+
+  const updated = await updateRecord({
+    id: planId,
+    taskType: WEEKLY_PLAN_TYPE,
+    normalizer: normalizeWeeklyPlan,
+    updates: {
+      allocations: plan.allocations.filter((item) => item.id !== allocationId)
+    }
+  });
+
+  return { plan: updated, allocation };
 };
 
 const getCampaignWorkspace = async () => {
@@ -486,7 +518,7 @@ const seedDemoWorkspace = async (userId) => {
   const weeklyPlan = await createWeeklyPlan({
     weekStart: toDate(weekStart),
     weekEnd: toDate(addDays(weekStart, 6)),
-    status: 'committed',
+    status: 'member_planning',
     userId
   });
 
@@ -499,6 +531,8 @@ const seedDemoWorkspace = async (userId) => {
     });
   }
 
+  await updateWeeklyPlan(weeklyPlan.id, { status: 'committed' });
+
   return { created: true, workspace: await getCampaignWorkspace() };
 };
 
@@ -507,6 +541,7 @@ module.exports = {
   getProjectById,
   getPhaseById,
   getWeeklyPlanById,
+  getWeeklyPlanByWeekStart,
   createProject,
   updateProject,
   createPhase,
@@ -515,5 +550,6 @@ module.exports = {
   updateWeeklyPlan,
   addWeeklyAllocation,
   updateWeeklyAllocation,
+  removeWeeklyAllocation,
   seedDemoWorkspace
 };
