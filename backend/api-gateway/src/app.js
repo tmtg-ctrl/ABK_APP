@@ -10,6 +10,7 @@ const authRoutes = require('./modules/auth/auth.routes');
 const profileRoutes = require('./modules/profile/profile.routes');
 const userRoutes = require('./modules/users/users.routes');
 const marketingTaskRoutes = require('./modules/marketing/marketing-task.routes');
+const marketingPostRoutes = require('./modules/marketing-posts/marketing-post.routes');
 const constructionDataRoutes = require('./modules/construction-data/construction-data.routes');
 const errorHandler = require('./shared/middleware/error-handler.middleware');
 
@@ -29,6 +30,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/marketing/tasks', marketingTaskRoutes);
+app.use('/api/marketing/posts', marketingPostRoutes);
 app.use('/api/construction-data', constructionDataRoutes);
 app.use('/controller/user', userRoutes);
 

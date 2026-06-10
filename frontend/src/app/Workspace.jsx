@@ -38,7 +38,7 @@ export function Workspace({ session, onLogout }) {
     [selectedTaskId, tasks]
   );
 
-  const isManager = ['admin', 'marketing_manager'].includes(session.user?.role);
+  const isManager = ['admin', 'marketing_manager', 'department_manager'].includes(session.user?.role);
   const isMarketingUser = session.user?.department === 'marketing' || session.user?.role === 'admin';
 
   const viewTitles = {
@@ -209,7 +209,12 @@ export function Workspace({ session, onLogout }) {
           <MediaWorkspace token={session.token} />
         )}
         {view === 'marketing-posts' && (
-          <MarketingPosts />
+          <MarketingPosts
+            token={session.token}
+            employees={employees}
+            isManager={isManager}
+            currentUser={session.user}
+          />
         )}
         {view === 'marketing-construction' && (
           <ConstructionData token={session.token} />

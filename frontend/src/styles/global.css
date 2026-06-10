@@ -660,8 +660,14 @@ select:focus {
   color: #475467;
 }
 
+.badge.draft {
+  background: #eef2f6;
+  color: #475467;
+}
+
 .badge.doing,
-.badge.medium {
+.badge.medium,
+.badge.scheduled {
   background: #e8f1ff;
   color: #1d4ed8;
 }
@@ -674,9 +680,136 @@ select:focus {
 
 .badge.approved,
 .badge.done,
+.badge.published,
 .badge.low {
   background: #e4f7ed;
   color: #23724d;
+}
+
+.marketing-posts-layout {
+  align-items: start;
+}
+
+.post-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.post-filter-tabs button {
+  background: #f7f8fa;
+  border: 1px solid #e4e8ef;
+  border-radius: 999px;
+  color: #667085;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 11px;
+  text-transform: capitalize;
+}
+
+.post-filter-tabs button.active {
+  background: #e7f2ee;
+  border-color: #8eb8aa;
+  color: #205f50;
+}
+
+.post-list {
+  display: grid;
+  gap: 9px;
+}
+
+.post-row {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e4e8ef;
+  border-radius: 8px;
+  color: #1d2433;
+  cursor: pointer;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 13px;
+  text-align: left;
+  width: 100%;
+}
+
+.post-row:hover,
+.post-row.active {
+  border-color: #2f6f5f;
+  box-shadow: 0 0 0 3px rgba(47, 111, 95, 0.08);
+}
+
+.post-row-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.post-row-copy span {
+  color: #667085;
+  display: -webkit-box;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.post-date {
+  color: #667085;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.post-detail h3 {
+  line-height: 1.35;
+  margin-bottom: 0;
+}
+
+.post-detail .detail-meta > span:not(.badge) {
+  align-items: center;
+  color: #667085;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.post-content {
+  background: #f7f8fa;
+  border: 1px solid #e4e8ef;
+  border-radius: 8px;
+  color: #344054;
+  line-height: 1.65;
+  min-height: 150px;
+  padding: 14px;
+  white-space: pre-wrap;
+}
+
+.post-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.danger-action {
+  align-items: center;
+  background: #fff0f0;
+  border: 1px solid #ffd1d1;
+  border-radius: 7px;
+  color: #b42318;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 7px;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.modal-panel.post-editor-modal {
+  max-height: calc(100vh - 40px);
+  max-width: 720px;
+  overflow: auto;
 }
 
 .count-pill {
@@ -1543,7 +1676,8 @@ select:focus {
 
   .topbar,
   .section-heading,
-  .task-row {
+  .task-row,
+  .post-row {
     align-items: flex-start;
     flex-direction: column;
   }

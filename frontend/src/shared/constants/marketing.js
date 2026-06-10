@@ -33,7 +33,10 @@ export const statusLabels = {
   doing: 'Doing',
   review: 'Review',
   approved: 'Approved',
-  done: 'Done'
+  done: 'Done',
+  draft: 'Draft',
+  scheduled: 'Scheduled',
+  published: 'Published'
 };
 
 export const priorityLabels = {
