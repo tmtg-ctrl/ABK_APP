@@ -6,9 +6,11 @@ const {
   deleteMarketingTask
 } = require('./marketing-task.service');
 
-const VALID_STATUSES = new Set(['todo', 'doing', 'review', 'approved', 'done']);
+const VALID_STATUSES = new Set(['backlog', 'todo', 'doing', 'review', 'revision', 'approved', 'blocked', 'done']);
 const VALID_PRIORITIES = new Set(['low', 'medium', 'high']);
-const VALID_TEAMS = new Set(['media', 'sale', 'content']);
+const VALID_TEAMS = new Set(['media', 'sale', 'content', 'performance', 'event', 'hr', 'all']);
+const VALID_WORK_CONTEXTS = new Set(['campaign', 'operation']);
+const VALID_ITEM_TYPES = new Set(['task', 'milestone']);
 const MANAGER_ROLES = new Set(['admin', 'marketing_manager', 'department_manager']);
 
 const getUserRole = (req) => req.user?.app_metadata?.role || 'staff';
@@ -39,7 +41,11 @@ exports.createTask = async (req, res, next) => {
       return;
     }
 
-    const { title, description, priority, team, work_type, assignee_id, deadline, status } = req.body;
+    const {
+      title, description, priority, team, work_type, work_context, item_type,
+      project_id, phase_id, deliverable, assignee_id, owner_name, collaborator_ids,
+      approver_id, start_date, deadline, progress, dependency_id, subtasks, checklist, status
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'title is required' });
@@ -50,11 +56,27 @@ exports.createTask = async (req, res, next) => {
     }
 
     if (status && !VALID_STATUSES.has(status)) {
-      return res.status(400).json({ error: 'status must be todo, doing, review, approved, or done' });
+      return res.status(400).json({ error: 'invalid marketing task status' });
     }
 
     if (team && !VALID_TEAMS.has(team)) {
-      return res.status(400).json({ error: 'team must be media, sale, or content' });
+      return res.status(400).json({ error: 'invalid marketing team' });
+    }
+
+    if (work_context && !VALID_WORK_CONTEXTS.has(work_context)) {
+      return res.status(400).json({ error: 'work_context must be campaign or operation' });
+    }
+
+    if (item_type && !VALID_ITEM_TYPES.has(item_type)) {
+      return res.status(400).json({ error: 'item_type must be task or milestone' });
+    }
+
+    if ((work_context === 'campaign' || project_id) && !project_id) {
+      return res.status(400).json({ error: 'project_id is required for campaign tasks' });
+    }
+
+    if (progress !== undefined && (Number(progress) < 0 || Number(progress) > 100)) {
+      return res.status(400).json({ error: 'progress must be between 0 and 100' });
     }
 
     const task = await createMarketingTask({
@@ -63,8 +85,21 @@ exports.createTask = async (req, res, next) => {
       priority,
       team,
       workType: work_type,
+      workContext: work_context,
+      itemType: item_type,
+      projectId: project_id,
+      phaseId: phase_id,
+      deliverable,
       assigneeId: assignee_id,
+      ownerName: owner_name,
+      collaboratorIds: collaborator_ids,
+      approverId: approver_id,
+      startDate: start_date,
       deadline,
+      progress,
+      dependencyId: dependency_id,
+      subtasks,
+      checklist,
       status,
       userId: req.user.id
     });
@@ -136,7 +171,11 @@ exports.updateTask = async (req, res, next) => {
       return res.status(403).json({ error: 'You do not have access to this marketing task' });
     }
 
-    const { title, description, priority, team, work_type, assignee_id, deadline, status } = req.body;
+    const {
+      title, description, priority, team, work_type, work_context, item_type,
+      project_id, phase_id, deliverable, assignee_id, owner_name, collaborator_ids,
+      approver_id, start_date, deadline, progress, dependency_id, subtasks, checklist, status
+    } = req.body;
 
     if (assignee_id !== undefined && !canManageMarketing(req)) {
       return res.status(403).json({ error: 'Marketing manager permission required to assign tasks' });
@@ -147,11 +186,23 @@ exports.updateTask = async (req, res, next) => {
     }
 
     if (status && !VALID_STATUSES.has(status)) {
-      return res.status(400).json({ error: 'status must be todo, doing, review, approved, or done' });
+      return res.status(400).json({ error: 'invalid marketing task status' });
     }
 
     if (team && !VALID_TEAMS.has(team)) {
-      return res.status(400).json({ error: 'team must be media, sale, or content' });
+      return res.status(400).json({ error: 'invalid marketing team' });
+    }
+
+    if (work_context && !VALID_WORK_CONTEXTS.has(work_context)) {
+      return res.status(400).json({ error: 'work_context must be campaign or operation' });
+    }
+
+    if (item_type && !VALID_ITEM_TYPES.has(item_type)) {
+      return res.status(400).json({ error: 'item_type must be task or milestone' });
+    }
+
+    if (progress !== undefined && (Number(progress) < 0 || Number(progress) > 100)) {
+      return res.status(400).json({ error: 'progress must be between 0 and 100' });
     }
 
     const task = await updateMarketingTask(req.params.taskId, {
@@ -160,8 +211,21 @@ exports.updateTask = async (req, res, next) => {
       priority,
       team,
       workType: work_type,
+      workContext: work_context,
+      itemType: item_type,
+      projectId: project_id,
+      phaseId: phase_id,
+      deliverable,
       assigneeId: assignee_id,
+      ownerName: owner_name,
+      collaboratorIds: collaborator_ids,
+      approverId: approver_id,
+      startDate: start_date,
       deadline,
+      progress,
+      dependencyId: dependency_id,
+      subtasks,
+      checklist,
       status
     });
 

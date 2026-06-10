@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   ClipboardList,
   FileText,
+  FolderKanban,
   Image,
   LayoutDashboard,
   LogOut,
@@ -18,6 +19,7 @@ import { ConstructionData } from '../features/construction-data/ConstructionData
 import { Dashboard } from '../features/dashboard/Dashboard';
 import { Employees } from '../features/employees/Employees';
 import { MarketingPosts } from '../features/marketing-posts/MarketingPosts';
+import { CampaignModule } from '../features/campaign-projects/CampaignModule';
 import { TaskWorkspace } from '../features/marketing-tasks/TaskWorkspace';
 import { MediaWorkspace } from '../features/media-workspace/MediaWorkspace';
 import { InlineError } from '../shared/components/InlineError';
@@ -25,7 +27,9 @@ import { NavButton } from '../shared/components/NavButton';
 import { apiRequest } from '../shared/services/api';
 
 export function Workspace({ session, onLogout }) {
-  const [view, setView] = useState('marketing-dashboard');
+  const [view, setView] = useState(
+    () => new URLSearchParams(window.location.search).get('view') || 'marketing-dashboard'
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -43,6 +47,7 @@ export function Workspace({ session, onLogout }) {
 
   const viewTitles = {
     'marketing-dashboard': 'Dashboard',
+    'marketing-campaign-demo': 'Campaign / Project',
     'marketing-media': 'Media Workspace',
     'marketing-posts': 'Quan ly bai dang',
     'marketing-construction': 'Du lieu cong trinh',
@@ -112,6 +117,14 @@ export function Workspace({ session, onLogout }) {
                   collapsed={sidebarCollapsed}
                 >
                   Dashboard
+                </NavButton>
+                <NavButton
+                  icon={FolderKanban}
+                  active={view === 'marketing-campaign-demo'}
+                  onClick={() => setView('marketing-campaign-demo')}
+                  collapsed={sidebarCollapsed}
+                >
+                  Campaign / Project
                 </NavButton>
                 <NavButton
                   icon={Image}
@@ -204,6 +217,14 @@ export function Workspace({ session, onLogout }) {
 
         {view === 'marketing-dashboard' && (
           <Dashboard tasks={tasks} employees={employees} isManager={isManager} onOpenTasks={() => setView('marketing-assigned-tasks')} />
+        )}
+        {view === 'marketing-campaign-demo' && (
+          <CampaignModule
+            token={session.token}
+            currentUser={session.user}
+            isManager={isManager}
+            onWorkspaceChanged={loadData}
+          />
         )}
         {view === 'marketing-media' && (
           <MediaWorkspace token={session.token} />
