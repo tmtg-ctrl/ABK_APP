@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
-  CalendarDays,
-  CheckCircle2,
   ChevronDown,
   CircleDot,
   Clock3,
@@ -18,18 +16,9 @@ import {
   Target,
   Users
 } from 'lucide-react';
+import { isTaskCompleted } from '../../shared/utils/tasks';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const TIMELINE_START = new Date('2026-06-08T00:00:00');
-const TIMELINE_DAYS = Array.from({ length: 21 }, (_, index) => {
-  const date = new Date(TIMELINE_START.getTime() + index * DAY_MS);
-  return {
-    key: date.toISOString().slice(0, 10),
-    day: date.getDate(),
-    weekday: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()]
-  };
-});
-
 export const campaignDemoProjects = [
   {
     id: 'showroom',
@@ -233,7 +222,6 @@ const views = [
   { id: 'timeline', label: 'Timeline', icon: GanttChartSquare }
 ];
 
-const getDateIndex = (date) => Math.round((new Date(`${date}T00:00:00`) - TIMELINE_START) / DAY_MS);
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 function ProjectHeader({ project, projects, onProjectChange, onBack }) {
@@ -273,7 +261,7 @@ function ProjectHeader({ project, projects, onProjectChange, onBack }) {
 }
 
 function ProjectSummary({ project, tasks }) {
-  const completed = tasks.filter((task) => task.status === 'done').length;
+  const completed = tasks.filter(isTaskCompleted).length;
   const atRisk = tasks.filter((task) => task.priority === 'high' && !['done', 'review'].includes(task.status)).length;
   const owners = new Set(tasks.map((task) => task.owner)).size;
 
@@ -309,8 +297,18 @@ function ProjectSummary({ project, tasks }) {
   );
 }
 
-function OverviewView({ project, tasks }) {
-  const phases = [...new Set(tasks.map((task) => task.phase))];
+function OverviewView({ project, tasks, phases, isManager, onCreatePhase }) {
+  const phaseNames = [
+    ...phases.filter((phase) => phase.project_id === project.id).map((phase) => phase.name),
+    ...tasks.map((task) => task.phase)
+  ].filter((phase, index, all) => phase && all.indexOf(phase) === index);
+  const nextMilestone = [...tasks]
+    .filter((task) => task.status !== 'done')
+    .sort((a, b) => (a.end || '').localeCompare(b.end || ''))
+    .find((task) => task.milestone)
+    || [...tasks]
+      .filter((task) => task.status !== 'done')
+      .sort((a, b) => (a.end || '').localeCompare(b.end || ''))[0];
 
   return (
     <div className="campaign-overview-grid">
@@ -320,16 +318,20 @@ function OverviewView({ project, tasks }) {
             <span className="eyebrow">Project structure</span>
             <h3>Giai doan va deliverable</h3>
           </div>
-          <button className="secondary-action compact-action">
-            <Plus size={15} />
-            Them phase
-          </button>
+          {isManager && (
+            <button className="secondary-action compact-action" onClick={() => onCreatePhase(project.id)}>
+              <Plus size={15} />
+              Them phase
+            </button>
+          )}
         </div>
         <div className="campaign-phase-list">
-          {phases.map((phase, phaseIndex) => {
+          {phaseNames.map((phase, phaseIndex) => {
             const phaseTasks = tasks.filter((task) => task.phase === phase);
-            const completed = phaseTasks.filter((task) => task.status === 'done').length;
-            const progress = Math.round(phaseTasks.reduce((sum, task) => sum + task.progress, 0) / phaseTasks.length);
+            const completed = phaseTasks.filter(isTaskCompleted).length;
+            const progress = phaseTasks.length
+              ? Math.round(phaseTasks.reduce((sum, task) => sum + task.progress, 0) / phaseTasks.length)
+              : 0;
 
             return (
               <div className="campaign-phase-row" key={phase}>
@@ -362,8 +364,8 @@ function OverviewView({ project, tasks }) {
           <Flag size={19} />
           <div>
             <span>Milestone tiep theo</span>
-            <strong>Tong duyet chuong trinh</strong>
-            <small>26/06/2026 - con 16 ngay</small>
+            <strong>{nextMilestone?.title.replace('MILESTONE: ', '') || 'Chua co milestone'}</strong>
+            <small>{nextMilestone?.end || 'Chua co deadline'}</small>
           </div>
         </div>
       </section>
@@ -371,7 +373,7 @@ function OverviewView({ project, tasks }) {
   );
 }
 
-function BoardView({ tasks, onMoveTask, focusTaskId }) {
+function BoardView({ tasks, onMoveTask, focusTaskId, canUpdateTask }) {
   const [draggedTaskId, setDraggedTaskId] = useState(null);
 
   return (
@@ -402,9 +404,9 @@ function BoardView({ tasks, onMoveTask, focusTaskId }) {
               {columnTasks.map((task) => (
                 <article
                   className={`campaign-task-card ${focusTaskId === task.id ? 'focused' : ''}`}
-                  draggable
+                  draggable={canUpdateTask(task)}
                   key={task.id}
-                  onDragStart={() => setDraggedTaskId(task.id)}
+                  onDragStart={() => canUpdateTask(task) && setDraggedTaskId(task.id)}
                   onDragEnd={() => setDraggedTaskId(null)}
                 >
                   <div className="campaign-task-card-top">
@@ -435,8 +437,22 @@ function BoardView({ tasks, onMoveTask, focusTaskId }) {
   );
 }
 
-function TimelineView({ tasks }) {
+function TimelineView({ tasks, project }) {
   const phases = [...new Set(tasks.map((task) => task.phase))];
+  const timelineStart = new Date(`${project.start || new Date().toISOString().slice(0, 10)}T00:00:00`);
+  const projectEnd = new Date(`${project.end || project.start || new Date().toISOString().slice(0, 10)}T00:00:00`);
+  const dayCount = clamp(Math.round((projectEnd - timelineStart) / DAY_MS) + 1, 14, 60);
+  const timelineDays = Array.from({ length: dayCount }, (_, index) => {
+    const date = new Date(timelineStart.getTime() + index * DAY_MS);
+    return {
+      key: date.toISOString().slice(0, 10),
+      day: date.getDate(),
+      weekday: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()]
+    };
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  const dateIndex = (date) => Math.round((new Date(`${date}T00:00:00`) - timelineStart) / DAY_MS);
+  const timelineStyle = { gridTemplateColumns: `repeat(${dayCount}, minmax(40px, 1fr))` };
 
   return (
     <section className="panel campaign-timeline-panel">
@@ -453,14 +469,14 @@ function TimelineView({ tasks }) {
         </div>
       </div>
 
-      <div className="campaign-gantt">
+      <div className="campaign-gantt" style={{ gridTemplateColumns: `290px minmax(${dayCount * 40}px, 1fr)` }}>
         <div className="campaign-gantt-header campaign-gantt-task-heading">
           <strong>Cong viec</strong>
           <span>Owner</span>
         </div>
-        <div className="campaign-gantt-header campaign-gantt-days">
-          {TIMELINE_DAYS.map((day) => (
-            <div className={day.key === '2026-06-10' ? 'today' : ''} key={day.key}>
+        <div className="campaign-gantt-header campaign-gantt-days" style={timelineStyle}>
+          {timelineDays.map((day) => (
+            <div className={day.key === today ? 'today' : ''} key={day.key}>
               <span>{day.weekday}</span>
               <strong>{day.day}</strong>
             </div>
@@ -477,8 +493,8 @@ function TimelineView({ tasks }) {
             </div>,
             <div className="campaign-gantt-phase-line" key={`${phase}-line`} />,
             ...phaseTasks.flatMap((task) => {
-              const start = clamp(getDateIndex(task.start), 0, TIMELINE_DAYS.length - 1);
-              const end = clamp(getDateIndex(task.end), 0, TIMELINE_DAYS.length - 1);
+              const start = clamp(dateIndex(task.start), 0, timelineDays.length - 1);
+              const end = clamp(dateIndex(task.end), 0, timelineDays.length - 1);
               const width = Math.max(end - start + 1, 1);
               return [
                 <div className="campaign-gantt-task" key={`${task.id}-label`}>
@@ -488,8 +504,8 @@ function TimelineView({ tasks }) {
                     <span>{task.owner}</span>
                   </div>
                 </div>,
-                <div className="campaign-gantt-track" key={`${task.id}-track`}>
-                  {TIMELINE_DAYS.map((day) => <i className={day.key === '2026-06-10' ? 'today' : ''} key={day.key} />)}
+                <div className="campaign-gantt-track" style={timelineStyle} key={`${task.id}-track`}>
+                  {timelineDays.map((day) => <i className={day.key === today ? 'today' : ''} key={day.key} />)}
                   {task.milestone ? (
                     <span className="campaign-milestone" style={{ gridColumn: `${start + 1}` }} title={task.title}>
                       <Flag size={13} />
@@ -513,92 +529,18 @@ function TimelineView({ tasks }) {
   );
 }
 
-function WeeklyView({ tasks }) {
-  const people = [...new Set(tasks.map((task) => task.owner))];
-  const weekDays = TIMELINE_DAYS.slice(0, 7);
-
-  return (
-    <div className="campaign-weekly-layout">
-      <section className="panel campaign-weekly-panel">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">Weekly planning</span>
-            <h3>Tuan 08/06 - 14/06</h3>
-          </div>
-          <button className="primary-action small">
-            <CheckCircle2 size={16} />
-            Chot ke hoach tuan
-          </button>
-        </div>
-        <div className="campaign-week-grid">
-          <div className="campaign-week-person heading">Nhan su</div>
-          {weekDays.map((day) => (
-            <div className={`campaign-week-day heading ${day.key === '2026-06-10' ? 'today' : ''}`} key={day.key}>
-              <span>{day.weekday}</span>
-              <strong>{day.day}/06</strong>
-            </div>
-          ))}
-          {people.map((person) => {
-            const personTasks = tasks.filter((task) => task.owner === person);
-            const workload = personTasks.reduce((sum, task) => sum + Math.max(getDateIndex(task.end) - getDateIndex(task.start) + 1, 1), 0);
-            return [
-              <div className="campaign-week-person" key={`${person}-name`}>
-                <span>{person.slice(0, 1)}</span>
-                <div>
-                  <strong>{person}</strong>
-                  <small>{workload > 7 ? 'Qua tai' : 'Con kha dung'}</small>
-                </div>
-              </div>,
-              ...weekDays.map((day) => {
-                const dayTasks = personTasks.filter((task) => day.key >= task.start && day.key <= task.end);
-                return (
-                  <div className={`campaign-week-day ${day.key === '2026-06-10' ? 'today' : ''}`} key={`${person}-${day.key}`}>
-                    {dayTasks.slice(0, 2).map((task) => (
-                      <span className={`campaign-week-chip ${task.team.toLowerCase()}`} key={task.id} title={task.title}>
-                        {task.title}
-                      </span>
-                    ))}
-                    {dayTasks.length > 2 && <small>+{dayTasks.length - 2}</small>}
-                  </div>
-                );
-              })
-            ];
-          })}
-        </div>
-      </section>
-
-      <section className="panel campaign-workload-panel">
-        <span className="eyebrow">Capacity</span>
-        <h3>Tai cong viec</h3>
-        <div className="campaign-workload-list">
-          {people.map((person, index) => {
-            const load = [92, 74, 63, 48, 39, 32][index] || 28;
-            return (
-              <div key={person}>
-                <span><strong>{person}</strong><b>{load}%</b></span>
-                <div className="campaign-progress-track">
-                  <i className={load > 85 ? 'overload' : ''} style={{ width: `${load}%` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="campaign-capacity-note">
-          <AlertTriangle size={17} />
-          <p><strong>Nguyen Ha dang qua tai.</strong> Nen chuyen mot bai countdown cho team Content ho tro.</p>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 export function CampaignProjectDemo({
   initialProjectId = 'showroom',
   initialView,
   focusTaskId,
   onBack,
   projects = campaignDemoProjects,
+  phases = [],
   initialTasks = campaignDemoTasks,
+  isManager = false,
+  onCreatePhase,
+  onCreateTask,
+  canUpdateTask = () => true,
   onTaskStatusChange
 }) {
   const [projectId, setProjectId] = useState(initialProjectId);
@@ -647,20 +589,39 @@ export function CampaignProjectDemo({
       />
       <ProjectSummary project={project} tasks={projectTasks} />
 
-      <div className="campaign-view-tabs">
-        {views.map(({ id, label, icon: Icon }) => (
-          <button className={activeView === id ? 'active' : ''} key={id} onClick={() => setActiveView(id)}>
-            <Icon size={17} />
-            {label}
-          </button>
-        ))}
+      <div className="campaign-view-toolbar">
+        <div className="campaign-view-tabs">
+          {views.map(({ id, label, icon: Icon }) => (
+            <button className={activeView === id ? 'active' : ''} key={id} onClick={() => setActiveView(id)}>
+              <Icon size={17} />
+              {label}
+            </button>
+          ))}
+        </div>
+        <button className="primary-action small" onClick={() => onCreateTask?.(project.id)}>
+          <Plus size={16} />
+          Them Task
+        </button>
       </div>
 
-      {activeView === 'overview' && <OverviewView project={project} tasks={projectTasks} />}
-      {activeView === 'board' && (
-        <BoardView tasks={projectTasks} onMoveTask={moveTask} focusTaskId={focusTaskId} />
+      {activeView === 'overview' && (
+        <OverviewView
+          project={project}
+          tasks={projectTasks}
+          phases={phases}
+          isManager={isManager}
+          onCreatePhase={onCreatePhase}
+        />
       )}
-      {activeView === 'timeline' && <TimelineView tasks={projectTasks} />}
+      {activeView === 'board' && (
+        <BoardView
+          tasks={projectTasks}
+          onMoveTask={moveTask}
+          focusTaskId={focusTaskId}
+          canUpdateTask={canUpdateTask}
+        />
+      )}
+      {activeView === 'timeline' && <TimelineView tasks={projectTasks} project={project} />}
     </div>
   );
 }

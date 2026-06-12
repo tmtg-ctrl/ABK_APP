@@ -1,17 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
   CircleDot,
-  Filter,
+  Clock3,
   Flag,
   FolderKanban,
   ListTodo,
   Plus,
+  Search,
   UserRoundCheck,
   Users
 } from 'lucide-react';
+import { TASK_BUCKET_LABELS, getTaskBucket, isTaskCompleted } from '../../shared/utils/tasks';
 
 const formatDate = (date) => {
   if (!date) return '--/--';
@@ -35,7 +37,7 @@ function PortfolioMetric({ icon: Icon, label, value, detail, tone = '' }) {
 function CampaignCard({ project, tasks, onOpen }) {
   const nextMilestone = tasks.find((task) => task.milestone && task.status !== 'done');
   const actionableTasks = tasks.filter((task) => !task.milestone);
-  const completed = actionableTasks.filter((task) => task.status === 'done').length;
+  const completed = actionableTasks.filter(isTaskCompleted).length;
 
   return (
     <button className="portfolio-campaign-card" onClick={() => onOpen(project.id)}>
@@ -80,18 +82,32 @@ export function CampaignPortfolio({
   tasks,
   onOpenCampaign,
   onOpenTask,
-  onCreateCampaign
+  onCreateCampaign,
+  onToggleTask,
+  canCreateCampaign,
+  canUpdateTask
 }) {
+  const [taskScope, setTaskScope] = useState('all');
+  const [taskQuery, setTaskQuery] = useState('');
   const projectById = useMemo(
     () => Object.fromEntries(projects.map((project) => [project.id, project])),
     [projects]
   );
   const today = new Date().toISOString().slice(0, 10);
-  const reviewTasks = tasks.filter((task) => task.status === 'review');
-  const delayedTasks = tasks
+  const campaignTasks = tasks.filter((task) => task.projectId && !task.milestone);
+  const reviewTasks = campaignTasks.filter((task) => task.status === 'review');
+  const delayedTasks = campaignTasks
     .filter((task) => task.end && task.end < today && !['done', 'approved'].includes(task.status))
     .map((task) => ({ ...task, delayLabel: `Tre han ${formatDate(task.end)}` }));
-  const campaignTasks = tasks.filter((task) => task.projectId && !task.milestone);
+  const visibleTasks = campaignTasks
+    .filter((task) => taskScope === 'all' || getTaskBucket(task.status) === taskScope)
+    .filter((task) => `${task.title} ${task.owner} ${projectById[task.projectId]?.name || ''}`
+      .toLowerCase()
+      .includes(taskQuery.trim().toLowerCase()))
+    .sort((a, b) => {
+      if (isTaskCompleted(a) !== isTaskCompleted(b)) return isTaskCompleted(a) ? 1 : -1;
+      return (a.end || '').localeCompare(b.end || '');
+    });
   const activeProjects = projects.filter((project) => !['completed', 'archived'].includes(project.status));
 
   const openTask = (task) => {
@@ -106,15 +122,17 @@ export function CampaignPortfolio({
           <h3>Chien dich va project Marketing</h3>
           <p>Theo doi muc tieu, giai doan, milestone va tien do tong the. Lich thuc thi duoc tach sang Cong viec tuan.</p>
         </div>
-        <button className="primary-action" onClick={onCreateCampaign}>
-          <Plus size={17} />
-          Tao campaign
-        </button>
+        {canCreateCampaign && (
+          <button className="primary-action" onClick={onCreateCampaign}>
+            <Plus size={17} />
+            Tao campaign
+          </button>
+        )}
       </section>
 
       <div className="portfolio-metric-grid">
         <PortfolioMetric icon={FolderKanban} label="Campaign dang chay" value={activeProjects.length} detail={`${projects.length} campaign trong portfolio`} />
-        <PortfolioMetric icon={ListTodo} label="Task campaign" value={campaignTasks.length} detail={`${campaignTasks.filter((task) => task.status === 'done').length} task da hoan thanh`} />
+        <PortfolioMetric icon={ListTodo} label="Task campaign" value={campaignTasks.length} detail={`${campaignTasks.filter(isTaskCompleted).length} task da hoan thanh`} />
         <PortfolioMetric icon={UserRoundCheck} label="Cho phe duyet" value={reviewTasks.length} detail="Can leader phan hoi" tone="amber" />
         <PortfolioMetric icon={AlertTriangle} label="Tre han" value={delayedTasks.length} detail="Can dieu chinh ke hoach" tone="red" />
       </div>
@@ -140,6 +158,59 @@ export function CampaignPortfolio({
         </section>
 
       </div>
+
+      <section className="panel portfolio-todo-section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Campaign worklist</span>
+            <h3>Danh sach viec da lam va chua lam</h3>
+          </div>
+          <span className="count-pill">{campaignTasks.filter(isTaskCompleted).length}/{campaignTasks.length} da xong</span>
+        </div>
+        <div className="portfolio-todo-toolbar">
+          <div className="portfolio-scope-tabs">
+            <button className={taskScope === 'all' ? 'active' : ''} onClick={() => setTaskScope('all')}>Tat ca</button>
+            {['pending', 'active', 'review', 'completed'].map((bucket) => (
+              <button className={taskScope === bucket ? 'active' : ''} onClick={() => setTaskScope(bucket)} key={bucket}>
+                {TASK_BUCKET_LABELS[bucket]}
+              </button>
+            ))}
+          </div>
+          <label className="portfolio-search">
+            <Search size={13} />
+            <input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="Tim viec" />
+          </label>
+        </div>
+        <div className="portfolio-todo-list">
+          {visibleTasks.map((task) => {
+            const completed = isTaskCompleted(task);
+            return (
+              <div className={`portfolio-todo-row ${completed ? 'completed' : ''}`} key={task.id}>
+                <button
+                  type="button"
+                  className="portfolio-check"
+                  onClick={() => onToggleTask(task.id, completed ? 'todo' : 'done')}
+                  disabled={!canUpdateTask(task)}
+                  title={completed ? 'Mo lai cong viec' : 'Danh dau hoan thanh'}
+                >
+                  {completed && <CheckCircle2 size={14} />}
+                </button>
+                <button type="button" className="portfolio-todo-main" onClick={() => openTask(task)}>
+                  <strong>{task.title}</strong>
+                  <span>
+                    <b>{projectById[task.projectId]?.name || 'Campaign'}</b>
+                    <i>{task.owner}</i>
+                    <i>{TASK_BUCKET_LABELS[getTaskBucket(task.status)]}</i>
+                  </span>
+                </button>
+                <span className={`portfolio-priority ${task.priority}`}>{task.priority}</span>
+                <span className="portfolio-due"><Clock3 size={12} /> {formatDate(task.end)}</span>
+              </div>
+            );
+          })}
+        </div>
+        {!visibleTasks.length && <div className="empty-state">Khong co cong viec phu hop bo loc.</div>}
+      </section>
 
       <div className="portfolio-alert-grid">
         <section className="panel portfolio-review-panel">
@@ -171,7 +242,6 @@ export function CampaignPortfolio({
               <span className="eyebrow">Attention</span>
               <h3>Tre han / Co rui ro</h3>
             </div>
-            <button className="secondary-action compact-action"><Filter size={14} /> Loc</button>
           </div>
           <div className="portfolio-compact-list">
             {delayedTasks.map((task) => (

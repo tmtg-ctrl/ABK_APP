@@ -9,6 +9,8 @@ import {
   FolderKanban,
   GripVertical,
   History,
+  LayoutGrid,
+  List,
   ListPlus,
   Plus,
   RefreshCw,
@@ -21,6 +23,12 @@ import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
 import { apiRequest } from '../../shared/services/api';
+import {
+  TASK_BUCKET_LABELS,
+  getChecklistProgress,
+  getTaskBucket,
+  isTaskCompleted
+} from '../../shared/utils/tasks';
 import {
   formatShortDate,
   formatWeekLabel,
@@ -690,6 +698,80 @@ function WeeklyTaskCard({
   );
 }
 
+function WeeklyListView({
+  allocations,
+  projectById,
+  employeeById,
+  currentUser,
+  isManager,
+  canExecutePlan,
+  onStatusChange,
+  onOpen
+}) {
+  const groups = ['pending', 'active', 'review', 'completed'];
+
+  return (
+    <div className="weekly-list-view">
+      {groups.map((bucket) => {
+        const bucketAllocations = allocations.filter(({ task }) => getTaskBucket(task.status) === bucket);
+        return (
+          <section className={`panel weekly-list-group ${bucket}`} key={bucket}>
+            <header>
+              <div>
+                <span className="eyebrow">{TASK_BUCKET_LABELS[bucket]}</span>
+                <h3>{bucketAllocations.length} cong viec</h3>
+              </div>
+              <b>{bucketAllocations.length}</b>
+            </header>
+            <div>
+              {bucketAllocations.map((allocation) => {
+                const task = allocation.task;
+                const checklist = getChecklistProgress(task);
+                const canUpdate = canExecutePlan && (
+                  isManager
+                  || task.assignee_id === currentUser.id
+                  || task.created_by === currentUser.id
+                  || task.collaborator_ids.includes(currentUser.id)
+                );
+                return (
+                  <article className={isTaskCompleted(task) ? 'completed' : ''} key={allocation.id}>
+                    <button
+                      type="button"
+                      className="portfolio-check"
+                      disabled={!canUpdate}
+                      onClick={() => onStatusChange(task.id, isTaskCompleted(task) ? 'todo' : 'done')}
+                    >
+                      {isTaskCompleted(task) && <CheckCircle2 size={14} />}
+                    </button>
+                    <button type="button" className="weekly-list-main" onClick={() => onOpen(task.id)}>
+                      <strong>{task.title}</strong>
+                      <span>
+                        {projectById[task.projectId]?.name || 'Van hanh'}
+                        {' - '}
+                        {employeeById[task.assignee_id]?.email || task.owner}
+                      </span>
+                      {!!checklist.total && <small>{checklist.completed}/{checklist.total} checklist da xong</small>}
+                    </button>
+                    <span className={`weekly-source ${task.projectId ? 'campaign' : 'operation'}`}>
+                      {task.projectId ? 'Campaign' : 'Van hanh'}
+                    </span>
+                    <span className="weekly-list-date">
+                      <Clock3 size={13} />
+                      {allocation.planned_date ? formatShortDate(allocation.planned_date) : 'Chua xep'}
+                    </span>
+                    <strong className="weekly-list-hours">{allocation.estimated_hours || 0}h</strong>
+                  </article>
+                );
+              })}
+              {!bucketAllocations.length && <div className="weekly-list-empty">Khong co cong viec.</div>}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export function WeeklyPlanningModule({
   token,
   currentUser,
@@ -707,6 +789,8 @@ export function WeeklyPlanningModule({
   } = useCampaignWorkspace(token);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [scope, setScope] = useState('all');
+  const [displayMode, setDisplayMode] = useState('list');
+  const [taskFilter, setTaskFilter] = useState('all');
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCreateOperation, setShowCreateOperation] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -747,6 +831,9 @@ export function WeeklyPlanningModule({
       if (scope === 'operation') return !task.projectId;
       return true;
     });
+  const visibleAllocations = taskFilter === 'all'
+    ? allocations
+    : allocations.filter(({ task }) => getTaskBucket(task.status) === taskFilter);
   const days = selectedPlan
     ? Array.from({ length: 7 }, (_, index) => addDays(selectedPlan.week_start, index))
     : [];
@@ -802,7 +889,10 @@ export function WeeklyPlanningModule({
     {
       method: 'PUT',
       token,
-      body: { status, progress: status === 'done' ? 100 : undefined }
+      body: {
+        status,
+        progress: status === 'done' ? 100 : ['backlog', 'todo'].includes(status) ? 0 : undefined
+      }
     }
   ));
 
@@ -837,7 +927,7 @@ export function WeeklyPlanningModule({
     );
   }
 
-  const completedCount = allocations.filter(({ task }) => task.status === 'done').length;
+  const completedCount = allocations.filter(({ task }) => isTaskCompleted(task)).length;
   const reviewCount = allocations.filter(({ task }) => task.status === 'review').length;
   const totalHours = allocations.reduce((sum, allocation) => sum + Number(allocation.estimated_hours || 0), 0);
   const campaignCount = allocations.filter(({ task }) => task.projectId).length;
@@ -887,32 +977,62 @@ export function WeeklyPlanningModule({
       </div>
 
       <section className="panel weekly-control-bar">
-        <div className="portfolio-scope-tabs">
-          <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>Toan phong</button>
-          <button className={scope === 'mine' ? 'active' : ''} onClick={() => setScope('mine')}>Cua toi</button>
-          <button className={scope === 'campaign' ? 'active' : ''} onClick={() => setScope('campaign')}>Campaign</button>
-          <button className={scope === 'operation' ? 'active' : ''} onClick={() => setScope('operation')}>Van hanh</button>
+        <div className="weekly-control-filters">
+          <div className="portfolio-scope-tabs">
+            <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>Toan phong</button>
+            <button className={scope === 'mine' ? 'active' : ''} onClick={() => setScope('mine')}>Cua toi</button>
+            <button className={scope === 'campaign' ? 'active' : ''} onClick={() => setScope('campaign')}>Campaign</button>
+            <button className={scope === 'operation' ? 'active' : ''} onClick={() => setScope('operation')}>Van hanh</button>
+          </div>
+          <select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}>
+            <option value="all">Tat ca trang thai</option>
+            {['pending', 'active', 'review', 'completed'].map((bucket) => (
+              <option value={bucket} key={bucket}>{TASK_BUCKET_LABELS[bucket]}</option>
+            ))}
+          </select>
         </div>
-        <div className="weekly-plan-status">
-          <span className={`weekly-status ${selectedPlan.status}`}>{statusLabels[selectedPlan.status]}</span>
-          {isManager && selectedPlan.status !== 'closed' && (
-            <select
-              value={selectedPlan.status}
-              disabled={saving}
-              onChange={(event) => updatePlanStatus(event.target.value)}
-            >
-              <option value="member_planning">Nhan vien lap lich</option>
-              <option value="leader_review">Leader duyet</option>
-              <option value="committed">Chot ke hoach</option>
-              <option value="closed">Dong tuan</option>
-            </select>
-          )}
+        <div className="weekly-control-actions">
+          <div className="weekly-view-toggle">
+            <button className={displayMode === 'list' ? 'active' : ''} onClick={() => setDisplayMode('list')}>
+              <List size={15} /> Danh sach
+            </button>
+            <button className={displayMode === 'board' ? 'active' : ''} onClick={() => setDisplayMode('board')}>
+              <LayoutGrid size={15} /> Lich tuan
+            </button>
+          </div>
+          <div className="weekly-plan-status">
+            <span className={`weekly-status ${selectedPlan.status}`}>{statusLabels[selectedPlan.status]}</span>
+            {isManager && selectedPlan.status !== 'closed' && (
+              <select
+                value={selectedPlan.status}
+                disabled={saving}
+                onChange={(event) => updatePlanStatus(event.target.value)}
+              >
+                <option value="member_planning">Nhan vien lap lich</option>
+                <option value="leader_review">Leader duyet</option>
+                <option value="committed">Chot ke hoach</option>
+                <option value="closed">Dong tuan</option>
+              </select>
+            )}
+          </div>
         </div>
       </section>
 
+      {displayMode === 'list' ? (
+        <WeeklyListView
+          allocations={visibleAllocations}
+          projectById={projectById}
+          employeeById={employeeById}
+          currentUser={currentUser}
+          isManager={isManager}
+          canExecutePlan={canExecutePlan}
+          onStatusChange={updateTaskStatus}
+          onOpen={setSelectedTaskId}
+        />
+      ) : (
       <div className="weekly-board">
         {[...days, 'unplanned'].map((date) => {
-          const dayAllocations = allocations.filter((allocation) => (
+          const dayAllocations = visibleAllocations.filter((allocation) => (
             date === 'unplanned' ? !allocation.planned_date : allocation.planned_date === date
           ));
           const isToday = date === today;
@@ -968,6 +1088,7 @@ export function WeeklyPlanningModule({
           );
         })}
       </div>
+      )}
 
       {showAddTask && (
         <Modal title="Dua Task co san vao tuan" onClose={() => setShowAddTask(false)}>

@@ -360,7 +360,7 @@ const getCampaignWorkspace = async () => {
   const enrichedProjects = projects.map((project) => {
     const projectTasks = tasks.filter((task) => task.project_id === project.id);
     const actionableTasks = projectTasks.filter((task) => task.item_type !== 'milestone');
-    const completed = actionableTasks.filter((task) => task.status === 'done').length;
+    const completed = actionableTasks.filter((task) => ['approved', 'done'].includes(task.status)).length;
 
     return {
       ...project,

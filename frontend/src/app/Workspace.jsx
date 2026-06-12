@@ -230,6 +230,8 @@ export function Workspace({ session, onLogout }) {
           <CampaignModule
             token={session.token}
             isManager={isManager}
+            currentUser={session.user}
+            employees={employees}
             onWorkspaceChanged={loadData}
           />
         )}
@@ -264,6 +266,7 @@ export function Workspace({ session, onLogout }) {
             isManager={isManager}
             token={session.token}
             currentUser={session.user}
+            mode={view === 'marketing-tasks' ? 'manage' : 'assigned'}
             onChanged={loadData}
             onSelect={setSelectedTaskId}
           />

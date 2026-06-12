@@ -30,6 +30,7 @@ const normalizeMarketingTask = (task) => {
     updated_by_id: task.data?.updated_by_id || null,
     updated_by_name: task.data?.updated_by_name || '',
     activity: Array.isArray(task.data?.activity) ? task.data.activity : [],
+    completed_at: task.data?.completed_at || null,
     start_date: task.data?.start_date || null,
     deadline: task.data?.deadline || null,
     progress: Number(task.data?.progress || 0),
@@ -101,9 +102,10 @@ const createMarketingTask = async ({
       actor_name: creatorName || '',
       created_at: now
     }],
+    completed_at: ['approved', 'done'].includes(status) ? now : null,
     start_date: startDate || null,
     deadline: deadline || null,
-    progress: Number(progress || 0),
+    progress: Number(progress ?? (['approved', 'done'].includes(status) ? 100 : 0)),
     dependency_id: dependencyId || null,
     subtasks: subtasks || [],
     checklist: checklist || [],
@@ -231,9 +233,19 @@ const updateMarketingTask = async (taskId, updates) => {
     updated_by_id: updates.actorId || existing.updated_by_id,
     updated_by_name: updates.actorName || existing.updated_by_name,
     activity: nextActivity,
+    completed_at: updates.status === undefined
+      ? existing.completed_at
+      : ['approved', 'done'].includes(updates.status)
+        ? existing.completed_at || now
+        : null,
     start_date: updates.startDate === undefined ? existing.start_date : updates.startDate || null,
     deadline: updates.deadline ?? existing.deadline,
-    progress: updates.progress ?? existing.progress,
+    progress: updates.progress
+      ?? (['approved', 'done'].includes(updates.status)
+        ? 100
+        : ['backlog', 'todo'].includes(updates.status) && ['approved', 'done'].includes(existing.status)
+          ? 0
+          : existing.progress),
     dependency_id: updates.dependencyId === undefined ? existing.dependency_id : updates.dependencyId || null,
     subtasks: updates.subtasks ?? existing.subtasks,
     checklist: updates.checklist ?? existing.checklist,
