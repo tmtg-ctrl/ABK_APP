@@ -10,6 +10,7 @@ jest.mock('../modules/auth/auth.service', () => ({
   loginUser: jest.fn(),
   listEmployees: jest.fn(),
   deleteUser: jest.fn(),
+  deleteUsers: jest.fn(),
   deleteDepartmentEmployees: jest.fn()
 }));
 
@@ -162,6 +163,39 @@ describe('Auth Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(authService.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it('deletes selected employee accounts', async () => {
+    authService.deleteUsers.mockResolvedValue({
+      deleted: [
+        { id: 'staff-1', email: 'one@abk.vn' },
+        { id: 'staff-2', email: 'two@abk.vn' }
+      ],
+      failed: []
+    });
+    const req = {
+      user: { id: 'admin-1' },
+      body: { user_ids: ['staff-1', 'staff-2'] }
+    };
+    const res = createResponse();
+
+    await authController.deleteSelectedEmployees(req, res, next);
+
+    expect(authService.deleteUsers).toHaveBeenCalledWith(['staff-1', 'staff-2']);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects bulk deletion when the current admin is selected', async () => {
+    const req = {
+      user: { id: 'admin-1' },
+      body: { user_ids: ['staff-1', 'admin-1'] }
+    };
+    const res = createResponse();
+
+    await authController.deleteSelectedEmployees(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(authService.deleteUsers).not.toHaveBeenCalled();
   });
 
   it('deletes all marketing accounts after explicit confirmation', async () => {

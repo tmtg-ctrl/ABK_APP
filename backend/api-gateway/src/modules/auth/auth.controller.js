@@ -3,6 +3,7 @@ const {
   loginUser,
   listEmployees,
   deleteUser,
+  deleteUsers,
   deleteDepartmentEmployees,
   sendOtp,
   verifyOtp
@@ -126,6 +127,34 @@ exports.deleteEmployee = async (req, res, next) => {
     res.status(200).json({
       message: 'Employee account deleted successfully',
       employee
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteSelectedEmployees = async (req, res, next) => {
+  try {
+    const userIds = req.body.user_ids;
+
+    if (!Array.isArray(userIds) || !userIds.length || userIds.length > 100) {
+      return res.status(400).json({ error: 'user_ids must contain between 1 and 100 account IDs' });
+    }
+
+    if (userIds.some((id) => typeof id !== 'string' || !id.trim())) {
+      return res.status(400).json({ error: 'user_ids contains an invalid account ID' });
+    }
+    const normalizedIds = [...new Set(userIds.map((id) => id.trim()))];
+
+    if (normalizedIds.includes(req.user.id)) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const result = await deleteUsers(normalizedIds);
+    res.status(result.failed.length ? 207 : 200).json({
+      message: `Deleted ${result.deleted.length} selected account(s)`,
+      deleted: result.deleted,
+      failed: result.failed
     });
   } catch (error) {
     next(error);

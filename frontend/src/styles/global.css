@@ -3464,6 +3464,15 @@ select:focus {
   max-width: 760px;
 }
 
+.employee-heading-actions,
+.employee-list-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
 .employee-admin-badge {
   align-items: center;
   background: #e8f3ef;
@@ -3481,12 +3490,18 @@ select:focus {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
 }
 
-.employee-management-row > div:nth-child(2) {
+.employee-management-row.selected {
+  background: #f0f8f5;
+  border-color: #9fcabb;
+}
+
+.employee-row-copy {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .employee-management-row span {
@@ -3494,8 +3509,45 @@ select:focus {
   font-size: 11px;
 }
 
-.employee-create-panel {
-  align-self: start;
+.employee-directory-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.employee-row-select,
+.employee-select-all {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.employee-row-select input,
+.employee-select-all input {
+  accent-color: #2f6f5f;
+  cursor: pointer;
+  min-height: 17px;
+  width: 17px;
+}
+
+.employee-row-select input:disabled {
+  cursor: not-allowed;
+}
+
+.employee-select-all {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.employee-clear-selection {
+  gap: 5px;
+}
+
+.employee-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 
 .employee-success {
@@ -4558,13 +4610,26 @@ select:focus {
     flex-direction: column;
   }
 
+  .employee-heading-actions,
+  .employee-list-actions {
+    justify-content: flex-start;
+  }
+
   .employee-management-row {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr);
   }
 
   .employee-management-row .danger-action {
-    grid-column: 2;
+    grid-column: 3;
     justify-self: start;
+  }
+
+  .employee-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .employee-modal-actions button {
+    width: 100%;
   }
 
   .status-row,

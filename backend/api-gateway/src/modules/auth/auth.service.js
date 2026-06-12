@@ -198,6 +198,25 @@ const deleteDepartmentEmployees = async (department) => {
   return { deleted, failed };
 };
 
+const deleteUsers = async (userIds) => {
+  const deleted = [];
+  const failed = [];
+
+  for (const userId of [...new Set(userIds)]) {
+    try {
+      const employee = await deleteUser(userId);
+      deleted.push(employee);
+    } catch (error) {
+      failed.push({
+        id: userId,
+        error: error.message
+      });
+    }
+  }
+
+  return { deleted, failed };
+};
+
 const sendOtp = async ({ email, phone }) => {
   const payload = {};
   if (email) payload.email = email;
@@ -231,6 +250,7 @@ module.exports = {
   loginUser,
   listEmployees,
   deleteUser,
+  deleteUsers,
   deleteDepartmentEmployees,
   sendOtp,
   verifyOtp

@@ -7,6 +7,7 @@ router.post('/create-user', authenticate, requireAdmin, authController.register)
 router.post('/register', authenticate, requireAdmin, authController.register);
 router.get('/employees', authenticate, authController.listEmployees);
 router.get('/directory', authenticate, authController.listDirectory);
+router.post('/employees/delete-selected', authenticate, requireAdmin, authController.deleteSelectedEmployees);
 router.delete('/employees/:userId', authenticate, requireAdmin, authController.deleteEmployee);
 router.post('/employees/delete-marketing', authenticate, requireAdmin, authController.deleteMarketingDepartment);
 router.post('/login', authController.login);
