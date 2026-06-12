@@ -8,7 +8,9 @@ const createResponse = () => {
 jest.mock('../modules/auth/auth.service', () => ({
   registerUser: jest.fn(),
   loginUser: jest.fn(),
-  listEmployees: jest.fn()
+  listEmployees: jest.fn(),
+  deleteUser: jest.fn(),
+  deleteDepartmentEmployees: jest.fn()
 }));
 
 const authService = require('../modules/auth/auth.service');
@@ -147,5 +149,35 @@ describe('Auth Controller', () => {
         position: 'Content'
       }]
     });
+  });
+
+  it('prevents an admin from deleting their own account', async () => {
+    const req = {
+      user: { id: 'admin-1' },
+      params: { userId: 'admin-1' }
+    };
+    const res = createResponse();
+
+    await authController.deleteEmployee(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(authService.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it('deletes all marketing accounts after explicit confirmation', async () => {
+    authService.deleteDepartmentEmployees.mockResolvedValue({
+      deleted: [{ id: 'staff-1', email: 'staff@abk.vn' }],
+      failed: []
+    });
+    const req = {
+      user: { id: 'admin-1' },
+      body: { confirmation: 'DELETE_MARKETING' }
+    };
+    const res = createResponse();
+
+    await authController.deleteMarketingDepartment(req, res, next);
+
+    expect(authService.deleteDepartmentEmployees).toHaveBeenCalledWith('marketing');
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });

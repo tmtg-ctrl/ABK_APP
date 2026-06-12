@@ -151,6 +151,53 @@ const listEmployees = async ({ department, role } = {}) => {
     });
 };
 
+const deleteUser = async (userId) => {
+  const { data: userData, error: getUserError } = await supabase.auth.admin.getUserById(userId);
+
+  if (getUserError || !userData?.user) {
+    const error = getUserError || new Error('User not found');
+    error.status = getUserError?.status || 404;
+    throw error;
+  }
+
+  const employee = normalizeEmployee(userData.user);
+  if (employee.role === 'admin') {
+    const error = new Error('Admin accounts cannot be deleted from employee management');
+    error.status = 400;
+    throw error;
+  }
+
+  const { error } = await supabase.auth.admin.deleteUser(userId);
+  if (error) {
+    throw error;
+  }
+
+  await supabase.from('profiles').delete().eq('id', userId);
+  return employee;
+};
+
+const deleteDepartmentEmployees = async (department) => {
+  const employees = await listEmployees({ department });
+  const targets = employees.filter((employee) => employee.role !== 'admin');
+  const deleted = [];
+  const failed = [];
+
+  for (const employee of targets) {
+    try {
+      await deleteUser(employee.id);
+      deleted.push(employee);
+    } catch (error) {
+      failed.push({
+        id: employee.id,
+        email: employee.email,
+        error: error.message
+      });
+    }
+  }
+
+  return { deleted, failed };
+};
+
 const sendOtp = async ({ email, phone }) => {
   const payload = {};
   if (email) payload.email = email;
@@ -183,6 +230,8 @@ module.exports = {
   registerUser,
   loginUser,
   listEmployees,
+  deleteUser,
+  deleteDepartmentEmployees,
   sendOtp,
   verifyOtp
 };

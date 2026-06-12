@@ -1,4 +1,12 @@
-const { registerUser, loginUser, listEmployees, sendOtp, verifyOtp } = require('./auth.service');
+const {
+  registerUser,
+  loginUser,
+  listEmployees,
+  deleteUser,
+  deleteDepartmentEmployees,
+  sendOtp,
+  verifyOtp
+} = require('./auth.service');
 
 const MANAGER_ROLES = new Set(['admin', 'marketing_manager']);
 
@@ -102,6 +110,39 @@ exports.listDirectory = async (req, res, next) => {
     res.status(200).json({
       total: directory.length,
       employees: directory
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteEmployee = async (req, res, next) => {
+  try {
+    if (req.params.userId === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const employee = await deleteUser(req.params.userId);
+    res.status(200).json({
+      message: 'Employee account deleted successfully',
+      employee
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteMarketingDepartment = async (req, res, next) => {
+  try {
+    if (req.body.confirmation !== 'DELETE_MARKETING') {
+      return res.status(400).json({ error: 'confirmation must be DELETE_MARKETING' });
+    }
+
+    const result = await deleteDepartmentEmployees('marketing');
+    res.status(result.failed.length ? 207 : 200).json({
+      message: `Deleted ${result.deleted.length} Marketing account(s)`,
+      deleted: result.deleted,
+      failed: result.failed
     });
   } catch (error) {
     next(error);

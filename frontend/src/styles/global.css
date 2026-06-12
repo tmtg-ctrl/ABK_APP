@@ -3397,6 +3397,101 @@ select:focus {
   padding: 12px;
 }
 
+.employee-management {
+  display: grid;
+  gap: 16px;
+}
+
+.employee-management-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.employee-management-heading h3 {
+  font-size: 25px;
+  margin: 5px 0 7px;
+}
+
+.employee-management-heading p {
+  color: #667085;
+  margin: 0;
+  max-width: 760px;
+}
+
+.employee-admin-badge {
+  align-items: center;
+  background: #e8f3ef;
+  border: 1px solid #b8d8cc;
+  border-radius: 999px;
+  color: #246550;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 850;
+  gap: 6px;
+  padding: 8px 11px;
+}
+
+.employee-management-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.employee-management-row > div:nth-child(2) {
+  display: grid;
+  gap: 4px;
+}
+
+.employee-management-row span {
+  color: #667085;
+  font-size: 11px;
+}
+
+.employee-create-panel {
+  align-self: start;
+}
+
+.employee-success {
+  align-items: center;
+  background: #edf8f3;
+  border: 1px solid #c5e7d9;
+  border-radius: 7px;
+  color: #246550;
+  display: flex;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 10px 12px;
+}
+
+.employee-danger-zone {
+  align-items: center;
+  background: #fff8f7;
+  border-color: #f1cbc6;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.employee-danger-zone > div {
+  align-items: flex-start;
+  color: #b42318;
+  display: flex;
+  gap: 10px;
+}
+
+.employee-danger-zone span {
+  display: grid;
+  gap: 4px;
+}
+
+.employee-danger-zone small {
+  color: #7f514b;
+  line-height: 1.45;
+}
+
 .data-table {
   border: 1px solid #e4e8ef;
   border-radius: 8px;
@@ -4363,6 +4458,7 @@ select:focus {
 
   .weekly-planning-heading,
   .assigned-task-heading,
+  .employee-management-heading,
   .assigned-task-toolbar,
   .campaign-view-toolbar {
     align-items: stretch;
@@ -4405,6 +4501,21 @@ select:focus {
   .post-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .employee-management-heading,
+  .employee-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .employee-management-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .employee-management-row .danger-action {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .status-row,

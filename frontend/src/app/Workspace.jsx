@@ -44,6 +44,7 @@ export function Workspace({ session, onLogout }) {
   );
 
   const isManager = ['admin', 'marketing_manager', 'department_manager'].includes(session.user?.role);
+  const isAdmin = session.user?.role === 'admin';
   const isMarketingUser = session.user?.department === 'marketing' || session.user?.role === 'admin';
 
   const viewTitles = {
@@ -176,7 +177,7 @@ export function Workspace({ session, onLogout }) {
                     Quan ly task
                   </NavButton>
                 )}
-                {isManager && (
+                {isAdmin && (
                   <NavButton icon={Users} active={view === 'employees'} onClick={() => setView('employees')} collapsed={sidebarCollapsed}>
                     Nhan vien
                   </NavButton>
@@ -271,8 +272,8 @@ export function Workspace({ session, onLogout }) {
             onSelect={setSelectedTaskId}
           />
         )}
-        {view === 'employees' && isManager && (
-          <Employees employees={employees} token={session.token} onCreated={loadData} />
+        {view === 'employees' && isAdmin && (
+          <Employees employees={employees} token={session.token} onChanged={loadData} />
         )}
       </section>
     </main>
