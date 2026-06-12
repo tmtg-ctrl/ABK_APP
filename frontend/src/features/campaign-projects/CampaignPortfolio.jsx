@@ -130,7 +130,7 @@ export function CampaignPortfolio({
         {canCreateCampaign && (
           <button className="primary-action" onClick={onCreateCampaign}>
             <Plus size={17} />
-            Tao campaign
+            Them chien dich
           </button>
         )}
       </section>

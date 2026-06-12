@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderKanban, RefreshCw, Sparkles } from 'lucide-react';
+import { FolderKanban, Plus, RefreshCw } from 'lucide-react';
 import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect';
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
@@ -20,27 +20,49 @@ const emptyProject = {
   code: '',
   name: '',
   objective: '',
-  owner_name: '',
+  owner_id: '',
   start_date: '',
   end_date: '',
+  sponsor: '',
+  budget: '',
+  color: '#2f6f5f',
+  health: 'on_track',
   status: 'planning'
 };
 
-function ProjectForm({ token, onSaved, onClose }) {
-  const [form, setForm] = useState(emptyProject);
+function ProjectForm({ token, employees, currentUser, onSaved, onClose }) {
+  const directory = employees.some((employee) => employee.id === currentUser.id)
+    ? employees
+    : [...employees, currentUser];
+  const [form, setForm] = useState({
+    ...emptyProject,
+    owner_id: currentUser.id
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async (event) => {
     event.preventDefault();
+    if (form.start_date && form.end_date && form.end_date < form.start_date) {
+      setError('Ngay ket thuc phai bang hoac sau ngay bat dau.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
+      const owner = directory.find((employee) => employee.id === form.owner_id);
       await apiRequest('/api/marketing/projects', {
         method: 'POST',
         token,
         body: {
           ...form,
+          code: form.code.trim(),
+          name: form.name.trim(),
+          objective: form.objective.trim(),
+          sponsor: form.sponsor.trim(),
+          owner_name: owner?.email || currentUser.email,
+          budget: Number(form.budget || 0),
           start_date: form.start_date || null,
           end_date: form.end_date || null
         }
@@ -58,45 +80,101 @@ function ProjectForm({ token, onSaved, onClose }) {
     <form className="form-stack create-form" onSubmit={submit}>
       <div className="two-column">
         <label>
-          Ma campaign
+          Ma chien dich
           <input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="CAM-2606" />
         </label>
         <label>
           Trang thai
           <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-            <option value="planning">Planning</option>
+            <option value="planning">Dang lap ke hoach</option>
             <option value="active">Dang chay</option>
             <option value="paused">Tam dung</option>
           </select>
         </label>
       </div>
       <label>
-        Ten campaign
-        <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
+        Ten chien dich
+        <input
+          value={form.name}
+          onChange={(event) => setForm({ ...form, name: event.target.value })}
+          placeholder="Vi du: Truyen thong thuong hieu quy 3"
+          autoFocus
+          required
+        />
       </label>
       <label>
-        Muc tieu
-        <textarea rows="3" value={form.objective} onChange={(event) => setForm({ ...form, objective: event.target.value })} />
-      </label>
-      <label>
-        Project owner
-        <input value={form.owner_name} onChange={(event) => setForm({ ...form, owner_name: event.target.value })} />
+        Muc tieu chien dich
+        <textarea
+          rows="3"
+          value={form.objective}
+          onChange={(event) => setForm({ ...form, objective: event.target.value })}
+          placeholder="Mo ta ket qua chinh chien dich can dat duoc"
+        />
       </label>
       <div className="two-column">
         <label>
-          Bat dau
+          Nguoi phu trach
+          <select value={form.owner_id} onChange={(event) => setForm({ ...form, owner_id: event.target.value })}>
+            {directory.map((employee) => (
+              <option value={employee.id} key={employee.id}>{employee.email}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Nguoi bao tro / phe duyet
+          <input
+            value={form.sponsor}
+            onChange={(event) => setForm({ ...form, sponsor: event.target.value })}
+            placeholder="Vi du: Ban Giam doc"
+          />
+        </label>
+      </div>
+      <div className="two-column">
+        <label>
+          Ngay bat dau
           <input type="date" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} />
         </label>
         <label>
-          Ket thuc
+          Ngay ket thuc
           <input type="date" value={form.end_date} onChange={(event) => setForm({ ...form, end_date: event.target.value })} />
         </label>
       </div>
+      <div className="two-column">
+        <label>
+          Ngan sach du kien
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            value={form.budget}
+            onChange={(event) => setForm({ ...form, budget: event.target.value })}
+            placeholder="0"
+          />
+        </label>
+        <label>
+          Tinh trang ban dau
+          <select value={form.health} onChange={(event) => setForm({ ...form, health: event.target.value })}>
+            <option value="on_track">Dung tien do</option>
+            <option value="at_risk">Can theo doi</option>
+            <option value="off_track">Co rui ro</option>
+          </select>
+        </label>
+      </div>
+      <label className="campaign-color-field">
+        Mau nhan dien
+        <span>
+          <input type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} />
+          <strong>{form.color.toUpperCase()}</strong>
+        </span>
+      </label>
       {error && <InlineError message={error} />}
-      <button className="primary-action" disabled={saving}>
-        {saving ? <RefreshCw className="spin" size={17} /> : <FolderKanban size={17} />}
-        Tao campaign
-      </button>
+      <div className="campaign-form-actions">
+        <button type="button" className="secondary-action" onClick={onClose} disabled={saving}>Huy</button>
+        <button className="primary-action" disabled={saving}>
+          {saving ? <RefreshCw className="spin" size={17} /> : <Plus size={17} />}
+          Them chien dich
+        </button>
+      </div>
     </form>
   );
 }
@@ -346,7 +424,6 @@ export function CampaignModule({
   const [selection, setSelection] = useState({ projectId: null, tab: 'overview', taskId: null });
   const [showCreate, setShowCreate] = useState(false);
   const [createContext, setCreateContext] = useState(null);
-  const [seeding, setSeeding] = useState(false);
   const [actionError, setActionError] = useState('');
   const projects = rawProjects.map((project) => ({
     ...project,
@@ -359,23 +436,6 @@ export function CampaignModule({
     || task.assignee_id === currentUser.id
     || (task.collaborator_ids || []).includes(currentUser.id)
   );
-
-  const seedDemo = async () => {
-    setSeeding(true);
-    setActionError('');
-    try {
-      await apiRequest('/api/marketing/projects/seed-demo', {
-        method: 'POST',
-        token
-      });
-      await loadWorkspace();
-      onWorkspaceChanged?.();
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const updateTaskStatus = async (taskId, status) => {
     await apiRequest(`/api/marketing/tasks/${taskId}`, {
@@ -391,7 +451,7 @@ export function CampaignModule({
   };
 
   if (loading && !workspace.projects.length) {
-    return <div className="empty-state"><RefreshCw className="spin" size={18} /> Dang tai Campaign workspace...</div>;
+    return <div className="empty-state"><RefreshCw className="spin" size={18} /> Dang tai danh sach chien dich...</div>;
   }
 
   return (
@@ -399,13 +459,18 @@ export function CampaignModule({
       {(loadError || actionError) && <InlineError message={loadError || actionError} />}
       {!projects.length ? (
         <section className="panel campaign-empty-workspace">
-          <FolderKanban size={36} />
-          <h3>Campaign workspace chua co du lieu</h3>
-          <p>Tao bo du lieu mau de xem luong Campaign - Phase - Task - Weekly Plan hoat dong tren du lieu that.</p>
+          <div className="campaign-empty-icon"><FolderKanban size={31} /></div>
+          <span className="eyebrow">Danh sach chien dich</span>
+          <h3>Ban chua co chien dich nao</h3>
+          <p>
+            {isManager
+              ? 'Them chien dich dau tien, sau do chia thanh giai doan, tao cong viec va giao cho nhan vien phu trach.'
+              : 'Chua co chien dich nao duoc khoi tao. Hay lien he Admin hoac quan ly Marketing de them chien dich.'}
+          </p>
           {isManager && (
-            <button className="primary-action" onClick={seedDemo} disabled={seeding}>
-              {seeding ? <RefreshCw className="spin" size={17} /> : <Sparkles size={17} />}
-              Tao du lieu mau
+            <button className="primary-action" onClick={() => setShowCreate(true)}>
+              <Plus size={17} />
+              Them chien dich
             </button>
           )}
         </section>
@@ -445,13 +510,23 @@ export function CampaignModule({
 
       {showCreate && (
         <Modal
-          title="Tao campaign moi"
-          description="Khai bao muc tieu, nguoi phu trach va moc thoi gian cua chien dich."
+          title="Them chien dich moi"
+          description="Khai bao muc tieu, nguoi phu trach, ngan sach va moc thoi gian cua chien dich."
+          eyebrow="Chien dich moi"
           className="create-modal"
-          size="medium"
+          size="large"
           onClose={() => setShowCreate(false)}
         >
-          <ProjectForm token={token} onSaved={loadWorkspace} onClose={() => setShowCreate(false)} />
+          <ProjectForm
+            token={token}
+            employees={employees}
+            currentUser={currentUser}
+            onSaved={async () => {
+              await loadWorkspace();
+              onWorkspaceChanged?.();
+            }}
+            onClose={() => setShowCreate(false)}
+          />
         </Modal>
       )}
 

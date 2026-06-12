@@ -17,8 +17,7 @@ jest.mock('../modules/campaigns/campaign.service', () => ({
   updateWeeklyPlan: jest.fn(),
   addWeeklyAllocation: jest.fn(),
   updateWeeklyAllocation: jest.fn(),
-  removeWeeklyAllocation: jest.fn(),
-  seedDemoWorkspace: jest.fn()
+  removeWeeklyAllocation: jest.fn()
 }));
 
 jest.mock('../modules/marketing/marketing-task.service', () => ({
@@ -89,6 +88,23 @@ describe('Campaign Controller', () => {
       userId: 'manager-1'
     }));
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('rejects a campaign whose end date is before its start date', async () => {
+    const req = {
+      user: managerUser,
+      body: {
+        name: 'Brand campaign',
+        start_date: '2026-06-20',
+        end_date: '2026-06-10'
+      }
+    };
+    const res = createResponse();
+
+    await campaignController.createProject(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(campaignService.createProject).not.toHaveBeenCalled();
   });
 
   it('rejects a duplicate task in the same weekly plan', async () => {

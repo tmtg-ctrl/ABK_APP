@@ -1682,8 +1682,16 @@ select:focus {
   text-align: center;
 }
 
-.campaign-empty-workspace > svg {
-  color: #315f91;
+.campaign-empty-icon {
+  align-items: center;
+  background: #e9f3ef;
+  border: 1px solid #c7ded5;
+  border-radius: 14px;
+  color: #2f6f5f;
+  display: flex;
+  height: 68px;
+  justify-content: center;
+  width: 68px;
 }
 
 .campaign-empty-workspace h3,
@@ -1693,7 +1701,33 @@ select:focus {
 
 .campaign-empty-workspace p {
   color: #667085;
+  line-height: 1.55;
   max-width: 620px;
+}
+
+.campaign-color-field > span {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.campaign-color-field input[type="color"] {
+  cursor: pointer;
+  min-height: 42px;
+  padding: 4px;
+}
+
+.campaign-color-field strong {
+  color: #475467;
+  font-size: 13px;
+}
+
+.campaign-form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .portfolio-heading {
@@ -4628,8 +4662,13 @@ select:focus {
     flex-direction: column-reverse;
   }
 
-  .employee-modal-actions button {
+  .employee-modal-actions button,
+  .campaign-form-actions button {
     width: 100%;
+  }
+
+  .campaign-form-actions {
+    flex-direction: column-reverse;
   }
 
   .status-row,

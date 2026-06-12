@@ -55,6 +55,12 @@ exports.createProject = async (req, res, next) => {
     if (req.body.status && !PROJECT_STATUSES.has(req.body.status)) {
       return res.status(400).json({ error: 'invalid project status' });
     }
+    if (req.body.start_date && req.body.end_date && req.body.end_date < req.body.start_date) {
+      return res.status(400).json({ error: 'end_date must be on or after start_date' });
+    }
+    if (req.body.budget !== undefined && (!Number.isFinite(Number(req.body.budget)) || Number(req.body.budget) < 0)) {
+      return res.status(400).json({ error: 'budget must be a non-negative number' });
+    }
 
     const project = await campaignService.createProject({
       code: req.body.code?.trim(),
@@ -285,16 +291,6 @@ exports.removeAllocation = async (req, res, next) => {
     }
     if (result.reason === 'allocation_not_found') return res.status(404).json({ error: 'Allocation not found' });
     res.status(200).json({ message: 'Task removed from weekly plan', ...result });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.seedDemo = async (req, res, next) => {
-  try {
-    if (!requireMarketing(req, res) || !requireManager(req, res)) return;
-    const result = await campaignService.seedDemoWorkspace(req.user.id);
-    res.status(result.created ? 201 : 200).json(result);
   } catch (error) {
     next(error);
   }
