@@ -24,10 +24,13 @@ import { WeeklyPlanningModule } from '../features/weekly-planning/WeeklyPlanning
 import { TaskWorkspace } from '../features/marketing-tasks/TaskWorkspace';
 import { MediaWorkspace } from '../features/media-workspace/MediaWorkspace';
 import { InlineError } from '../shared/components/InlineError';
+import { LanguageSwitcher } from '../shared/components/LanguageSwitcher';
 import { NavButton } from '../shared/components/NavButton';
+import { useLanguage } from '../shared/i18n/LanguageContext';
 import { apiRequest } from '../shared/services/api';
 
 export function Workspace({ session, onLogout }) {
+  const { t } = useLanguage();
   const [view, setView] = useState(
     () => new URLSearchParams(window.location.search).get('view') || 'marketing-dashboard'
   );
@@ -48,15 +51,15 @@ export function Workspace({ session, onLogout }) {
   const isMarketingUser = session.user?.department === 'marketing' || session.user?.role === 'admin';
 
   const viewTitles = {
-    'marketing-dashboard': 'Dashboard',
-    'marketing-campaign-demo': 'Campaign / Project',
-    'marketing-weekly-planning': 'Cong viec tuan',
-    'marketing-media': 'Media Workspace',
-    'marketing-posts': 'Quan ly bai dang',
-    'marketing-construction': 'Du lieu cong trinh',
-    'marketing-assigned-tasks': 'Task duoc giao',
-    'marketing-tasks': 'Quan ly task',
-    employees: 'Employees'
+    'marketing-dashboard': t('nav.dashboard'),
+    'marketing-campaign-demo': t('nav.campaign'),
+    'marketing-weekly-planning': t('nav.weekly'),
+    'marketing-media': t('nav.media'),
+    'marketing-posts': t('nav.posts'),
+    'marketing-construction': t('nav.construction'),
+    'marketing-assigned-tasks': t('nav.assignedTasks'),
+    'marketing-tasks': t('nav.manageTasks'),
+    employees: t('nav.employees')
   };
 
   const loadData = async () => {
@@ -91,14 +94,14 @@ export function Workspace({ session, onLogout }) {
           </div>
           <div className="sidebar-text">
             <strong>ABK</strong>
-            <span>Internal</span>
+            <span>{t('app.internal')}</span>
           </div>
         </div>
 
         <button
           className="sidebar-edge-toggle"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          title={sidebarCollapsed ? t('action.showSidebar') : t('action.hideSidebar')}
         >
           {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
         </button>
@@ -107,7 +110,7 @@ export function Workspace({ session, onLogout }) {
           {isMarketingUser && (
             <div className="department-nav">
               <button className="department-toggle">
-                <span>Marketing</span>
+                <span>{t('department.marketing')}</span>
                 <ChevronDown size={16} />
               </button>
               <div className="department-links">
@@ -117,7 +120,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-dashboard')}
                   collapsed={sidebarCollapsed}
                 >
-                  Dashboard
+                  {t('nav.dashboard')}
                 </NavButton>
                 <NavButton
                   icon={FolderKanban}
@@ -125,7 +128,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-campaign-demo')}
                   collapsed={sidebarCollapsed}
                 >
-                  Campaign / Project
+                  {t('nav.campaign')}
                 </NavButton>
                 <NavButton
                   icon={CalendarDays}
@@ -133,7 +136,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-weekly-planning')}
                   collapsed={sidebarCollapsed}
                 >
-                  Cong viec tuan
+                  {t('nav.weekly')}
                 </NavButton>
                 <NavButton
                   icon={Image}
@@ -141,7 +144,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-media')}
                   collapsed={sidebarCollapsed}
                 >
-                  Media workspace
+                  {t('nav.media')}
                 </NavButton>
                 <NavButton
                   icon={FileText}
@@ -149,7 +152,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-posts')}
                   collapsed={sidebarCollapsed}
                 >
-                  Quan ly bai dang
+                  {t('nav.posts')}
                 </NavButton>
                 <NavButton
                   icon={Building2}
@@ -157,7 +160,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-construction')}
                   collapsed={sidebarCollapsed}
                 >
-                  Du lieu cong trinh
+                  {t('nav.construction')}
                 </NavButton>
                 <NavButton
                   icon={ClipboardList}
@@ -165,7 +168,7 @@ export function Workspace({ session, onLogout }) {
                   onClick={() => setView('marketing-assigned-tasks')}
                   collapsed={sidebarCollapsed}
                 >
-                  Task duoc giao
+                  {t('nav.assignedTasks')}
                 </NavButton>
                 {isManager && (
                   <NavButton
@@ -174,12 +177,12 @@ export function Workspace({ session, onLogout }) {
                     onClick={() => setView('marketing-tasks')}
                     collapsed={sidebarCollapsed}
                   >
-                    Quan ly task
+                    {t('nav.manageTasks')}
                   </NavButton>
                 )}
                 {isAdmin && (
                   <NavButton icon={Users} active={view === 'employees'} onClick={() => setView('employees')} collapsed={sidebarCollapsed}>
-                    Nhan vien
+                    {t('nav.employees')}
                   </NavButton>
                 )}
               </div>
@@ -187,13 +190,13 @@ export function Workspace({ session, onLogout }) {
           )}
           <div className="department-nav muted">
             <button className="department-toggle">
-              <span>Phong ban khac</span>
+              <span>{t('nav.otherDepartments')}</span>
               <ChevronDown size={16} />
             </button>
             <div className="department-links">
-              <button className="nav-button disabled">Tai chinh</button>
-              <button className="nav-button disabled">Dao tao</button>
-              <button className="nav-button disabled">Du an / QC</button>
+              <button className="nav-button disabled">{t('nav.finance')}</button>
+              <button className="nav-button disabled">{t('nav.training')}</button>
+              <button className="nav-button disabled">{t('nav.projectQc')}</button>
             </div>
           </div>
         </nav>
@@ -204,7 +207,7 @@ export function Workspace({ session, onLogout }) {
             <strong>{session.user?.email}</strong>
             <span>{session.user?.role}</span>
           </div>
-          <button className="icon-button" onClick={onLogout} title="Sign out">
+          <button className="icon-button" onClick={onLogout} title={t('action.signOut')}>
             <LogOut size={18} />
           </button>
         </div>
@@ -213,13 +216,16 @@ export function Workspace({ session, onLogout }) {
       <section className="content">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Marketing Department</span>
-            <h2>{viewTitles[view] || 'Workspace'}</h2>
+            <span className="eyebrow">{t('department.marketing')}</span>
+            <h2>{viewTitles[view] || t('app.workspace')}</h2>
           </div>
-          <button className="secondary-action" onClick={loadData} disabled={loading}>
-            <RefreshCw className={loading ? 'spin' : ''} size={17} />
-            Refresh
-          </button>
+          <div className="topbar-actions">
+            <LanguageSwitcher />
+            <button className="secondary-action" onClick={loadData} disabled={loading}>
+              <RefreshCw className={loading ? 'spin' : ''} size={17} />
+              {t('action.refresh')}
+            </button>
+          </div>
         </header>
 
         {error && <InlineError message={error} />}

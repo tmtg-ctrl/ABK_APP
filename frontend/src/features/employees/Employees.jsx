@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw, ShieldCheck, Trash2, UserPlus, Users } from '
 import { EmptyState } from '../../shared/components/EmptyState';
 import { InlineError } from '../../shared/components/InlineError';
 import { ROLE_OPTIONS } from '../../shared/constants/marketing';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import { apiRequest } from '../../shared/services/api';
 
 const roleLabels = {
@@ -12,6 +13,7 @@ const roleLabels = {
 };
 
 export function Employees({ employees, token, onChanged }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     email: '',
     password: '123456',
@@ -101,7 +103,7 @@ export function Employees({ employees, token, onChanged }) {
     <div className="employee-management">
       <section className="employee-management-heading">
         <div>
-          <span className="eyebrow">Admin only</span>
+          <span className="eyebrow">{t('employee.adminOnly')}</span>
           <h3>Quan ly tai khoan Marketing</h3>
           <p>Admin tao dung vai tro, xoa tai khoan cu va phan cong lai cong viec khi nhan su thay doi.</p>
         </div>

@@ -14,6 +14,7 @@ import {
 import { Badge } from '../../shared/components/Badge';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { InlineError } from '../../shared/components/InlineError';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import { apiRequest } from '../../shared/services/api';
 
 const needsWork = (record) => {
@@ -84,6 +85,7 @@ const summarizeStages = (records) => [
 ];
 
 export function MediaWorkspace({ token }) {
+  const { t } = useLanguage();
   const [records, setRecords] = useState([]);
   const [query, setQuery] = useState('');
   const [year, setYear] = useState('2026');
@@ -137,8 +139,8 @@ export function MediaWorkspace({ token }) {
     <div className="media-workspace">
       <section className="media-hero panel">
         <div>
-          <span className="eyebrow">Marketing Media</span>
-          <h3>Media / Canva production queue</h3>
+          <span className="eyebrow">Kho Media Marketing</span>
+          <h3>Hang doi san xuat Media / Canva</h3>
           <p>
             Gom cong trinh da co anh, dang lam Canva, can gan logo, cho xuat anh va cho dang fanpage vao mot hang doi de Media xu ly moi ngay.
           </p>
@@ -150,7 +152,7 @@ export function MediaWorkspace({ token }) {
           </select>
           <button className="secondary-action" disabled={loading} onClick={() => loadRecords(year)}>
             <RefreshCw className={loading ? 'spin' : ''} size={17} />
-            Refresh
+            {t('action.refresh')}
           </button>
           <a className="primary-action" href="https://www.canva.com/design/" rel="noreferrer" target="_blank">
             <Layers size={17} />
@@ -178,14 +180,14 @@ export function MediaWorkspace({ token }) {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Media jobs</span>
+            <span className="eyebrow">Cong viec Media</span>
             <h3>Cong trinh can xu ly anh</h3>
           </div>
           <CheckCircle2 size={20} />
         </div>
         <div className="search-box">
           <Search size={17} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by cong trinh, GDK, Zalo, trang thai" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tim theo cong trinh, GDK, Zalo, trang thai" />
         </div>
         <div className="data-table">
           <div className="table-row table-head media-queue-row">
@@ -193,7 +195,7 @@ export function MediaWorkspace({ token }) {
             <span>Trang thai anh</span>
             <span>Fanpage / Website</span>
             <span>Canva</span>
-            <span>Status</span>
+            <span>{t('common.status')}</span>
           </div>
           {filteredRecords.map((record) => (
             <div className="table-row media-queue-row" key={record.id}>
@@ -212,7 +214,7 @@ export function MediaWorkspace({ token }) {
               <div>
                 {record.latestProgressLink ? (
                   <a href={record.latestProgressLink} rel="noreferrer" target="_blank">
-                    Open design <ExternalLink size={14} />
+                    Mo thiet ke <ExternalLink size={14} />
                   </a>
                 ) : (
                   <span>Chua co link Canva</span>

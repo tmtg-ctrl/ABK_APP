@@ -37,6 +37,44 @@ button {
   justify-content: center;
   min-height: 100vh;
   padding: 24px;
+  position: relative;
+}
+
+.login-language {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+}
+
+.language-switcher {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d5dbe5;
+  border-radius: 8px;
+  color: #667085;
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+}
+
+.language-switcher > svg {
+  margin: 0 5px 0 3px;
+}
+
+.language-switcher button {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.language-switcher button.is-active {
+  background: #2f6f5f;
+  color: #ffffff;
 }
 
 .login-panel {
@@ -406,6 +444,12 @@ select:focus {
   display: flex;
   gap: 16px;
   justify-content: space-between;
+}
+
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
 }
 
 .eyebrow {
@@ -4501,6 +4545,11 @@ select:focus {
   .post-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar-actions {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .employee-management-heading,

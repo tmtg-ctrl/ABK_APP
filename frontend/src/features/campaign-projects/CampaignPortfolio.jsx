@@ -14,6 +14,7 @@ import {
   Users
 } from 'lucide-react';
 import { FilterMenu } from '../../shared/components/FilterMenu';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import { TASK_BUCKET_LABELS, getTaskBucket, isTaskCompleted } from '../../shared/utils/tasks';
 
 const formatDate = (date) => {
@@ -88,6 +89,7 @@ export function CampaignPortfolio({
   canCreateCampaign,
   canUpdateTask
 }) {
+  const { t } = useLanguage();
   const [taskScope, setTaskScope] = useState('all');
   const [taskQuery, setTaskQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -121,7 +123,7 @@ export function CampaignPortfolio({
     <div className="campaign-portfolio">
       <section className="portfolio-heading">
         <div>
-          <span className="eyebrow">Marketing portfolio</span>
+          <span className="eyebrow">{t('campaign.eyebrow')}</span>
           <h3>Chien dich va project Marketing</h3>
           <p>Theo doi muc tieu, giai doan, milestone va tien do tong the. Lich thuc thi duoc tach sang Cong viec tuan.</p>
         </div>
@@ -144,7 +146,7 @@ export function CampaignPortfolio({
         <section className="panel portfolio-campaign-section">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Campaign portfolio</span>
+              <span className="eyebrow">{t('common.portfolio')}</span>
               <h3>Chien dich dang trien khai</h3>
             </div>
           </div>
@@ -165,7 +167,7 @@ export function CampaignPortfolio({
       <section className="panel portfolio-todo-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Campaign worklist</span>
+            <span className="eyebrow">{t('campaign.worklist')}</span>
             <h3>Danh sach viec da lam va chua lam</h3>
           </div>
           <span className="count-pill">{campaignTasks.filter(isTaskCompleted).length}/{campaignTasks.length} da xong</span>
@@ -259,7 +261,7 @@ export function CampaignPortfolio({
         <section className="panel portfolio-review-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Approval queue</span>
+              <span className="eyebrow">{t('campaign.approvalQueue')}</span>
               <h3>Dang cho leader duyet</h3>
             </div>
             <span className="count-pill">{reviewTasks.length}</span>
@@ -282,7 +284,7 @@ export function CampaignPortfolio({
         <section className="panel portfolio-delay-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Attention</span>
+              <span className="eyebrow">{t('campaign.attention')}</span>
               <h3>Tre han / Co rui ro</h3>
             </div>
           </div>

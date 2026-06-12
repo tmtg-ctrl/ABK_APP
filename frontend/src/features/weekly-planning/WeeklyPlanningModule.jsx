@@ -24,6 +24,7 @@ import { FilterMenu } from '../../shared/components/FilterMenu';
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
 import { apiRequest } from '../../shared/services/api';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import {
   TASK_BUCKET_LABELS,
   getChecklistProgress,
@@ -780,6 +781,7 @@ export function WeeklyPlanningModule({
   employees,
   onWorkspaceChanged
 }) {
+  const { t } = useLanguage();
   const {
     projects,
     tasks,
@@ -941,7 +943,7 @@ export function WeeklyPlanningModule({
       {(loadError || actionError) && <InlineError message={loadError || actionError} />}
       <section className="weekly-planning-heading">
         <div>
-          <span className="eyebrow">Weekly planning</span>
+          <span className="eyebrow">{t('weekly.eyebrow')}</span>
           <h3>Cong viec tuan {formatWeekLabel(selectedPlan)}</h3>
           <p>Day la lich thuc thi. Campaign chi cung cap muc tieu va Task, khong tao them ban sao cong viec.</p>
         </div>

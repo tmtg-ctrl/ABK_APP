@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { BriefcaseBusiness, RefreshCw, ShieldCheck } from 'lucide-react';
 import { InlineError } from '../../shared/components/InlineError';
+import { LanguageSwitcher } from '../../shared/components/LanguageSwitcher';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import { apiRequest } from '../../shared/services/api';
 
 export function LoginScreen({ onLogin }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     email: 'test@example.com',
     password: '123456'
@@ -35,18 +38,21 @@ export function LoginScreen({ onLogin }) {
 
   return (
     <main className="login-page">
+      <div className="login-language">
+        <LanguageSwitcher />
+      </div>
       <section className="login-panel">
         <div>
           <div className="brand-mark">
             <BriefcaseBusiness size={22} />
           </div>
-          <h1>ABK Internal</h1>
-          <p>Operations workspace for teams, employees, and marketing tasks.</p>
+          <h1>{t('app.internal')}</h1>
+          <p>{t('login.description')}</p>
         </div>
 
         <form className="form-stack" onSubmit={submit}>
           <label>
-            Email
+            {t('login.email')}
             <input
               type="email"
               value={form.email}
@@ -55,7 +61,7 @@ export function LoginScreen({ onLogin }) {
             />
           </label>
           <label>
-            Password
+            {t('login.password')}
             <input
               type="password"
               value={form.password}
@@ -66,7 +72,7 @@ export function LoginScreen({ onLogin }) {
           {error && <InlineError message={error} />}
           <button className="primary-action" disabled={loading}>
             {loading ? <RefreshCw className="spin" size={18} /> : <ShieldCheck size={18} />}
-            Sign in
+            {t('login.submit')}
           </button>
         </form>
       </section>

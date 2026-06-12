@@ -31,6 +31,26 @@ export const WORK_TYPES_BY_TEAM = {
 };
 
 export const statusLabels = {
+  todo: 'Can lam',
+  doing: 'Dang lam',
+  review: 'Cho duyet',
+  approved: 'Da duyet',
+  done: 'Hoan thanh',
+  backlog: 'Chua len lich',
+  revision: 'Can sua',
+  blocked: 'Dang vuong',
+  draft: 'Ban nhap',
+  scheduled: 'Da len lich',
+  published: 'Da dang'
+};
+
+export const priorityLabels = {
+  low: 'Thap',
+  medium: 'Trung binh',
+  high: 'Cao'
+};
+
+export const statusLabelsEn = {
   todo: 'Todo',
   doing: 'Doing',
   review: 'Review',
@@ -44,11 +64,14 @@ export const statusLabels = {
   published: 'Published'
 };
 
-export const priorityLabels = {
+export const priorityLabelsEn = {
   low: 'Low',
   medium: 'Medium',
   high: 'High'
 };
+
+export const getStatusLabels = (language) => language === 'en' ? statusLabelsEn : statusLabels;
+export const getPriorityLabels = (language) => language === 'en' ? priorityLabelsEn : priorityLabels;
 
 export const teamLabels = {
   media: 'Media',

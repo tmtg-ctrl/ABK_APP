@@ -227,7 +227,7 @@ export function MarketingPosts({ token, employees, isManager, currentUser }) {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Marketing Module</span>
+            <span className="eyebrow">Quan ly noi dung Marketing</span>
             <h3>Quan ly bai dang</h3>
           </div>
           <button className="primary-action small" onClick={() => setShowCreate(true)}>

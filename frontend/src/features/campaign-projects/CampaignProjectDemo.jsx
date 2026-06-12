@@ -17,6 +17,7 @@ import {
   Users
 } from 'lucide-react';
 import { isTaskCompleted } from '../../shared/utils/tasks';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const campaignDemoProjects = [
@@ -209,7 +210,7 @@ export const campaignDemoTasks = [
 ];
 
 const boardColumns = [
-  { id: 'backlog', label: 'Backlog', description: 'Chua dua vao tuan' },
+  { id: 'backlog', label: 'Chua len lich', description: 'Chua dua vao tuan' },
   { id: 'todo', label: 'Can lam', description: 'Da cam ket thuc hien' },
   { id: 'doing', label: 'Dang lam', description: 'Dang duoc xu ly' },
   { id: 'review', label: 'Cho duyet', description: 'Can quan ly phan hoi' },
@@ -217,14 +218,15 @@ const boardColumns = [
 ];
 
 const views = [
-  { id: 'overview', label: 'Overview', icon: BarChart3 },
-  { id: 'board', label: 'Board', icon: KanbanSquare },
-  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare }
+  { id: 'overview', labelKey: 'common.overview', icon: BarChart3 },
+  { id: 'board', labelKey: 'common.board', icon: KanbanSquare },
+  { id: 'timeline', labelKey: 'common.timeline', icon: GanttChartSquare }
 ];
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 function ProjectHeader({ project, projects, onProjectChange, onBack }) {
+  const { t } = useLanguage();
   return (
     <section className="campaign-project-hero">
       <div>
@@ -232,10 +234,10 @@ function ProjectHeader({ project, projects, onProjectChange, onBack }) {
           {onBack && (
             <button className="campaign-back-action" onClick={onBack}>
               <ArrowLeft size={14} />
-              Portfolio
+              {t('common.portfolio')}
             </button>
           )}
-          <span className="campaign-demo-pill">LIVE</span>
+          <span className="campaign-demo-pill">{t('common.live')}</span>
           <span>{project.code}</span>
           <span className="campaign-health">
             <CircleDot size={13} />
@@ -298,6 +300,7 @@ function ProjectSummary({ project, tasks }) {
 }
 
 function OverviewView({ project, tasks, phases, isManager, onCreatePhase }) {
+  const { t } = useLanguage();
   const phaseNames = [
     ...phases.filter((phase) => phase.project_id === project.id).map((phase) => phase.name),
     ...tasks.map((task) => task.phase)
@@ -315,7 +318,7 @@ function OverviewView({ project, tasks, phases, isManager, onCreatePhase }) {
       <section className="panel campaign-plan-panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Project structure</span>
+            <span className="eyebrow">{t('common.projectStructure')}</span>
             <h3>Giai doan va deliverable</h3>
           </div>
           {isManager && (
@@ -352,11 +355,11 @@ function OverviewView({ project, tasks, phases, isManager, onCreatePhase }) {
       </section>
 
       <section className="panel campaign-info-panel">
-        <span className="eyebrow">Project brief</span>
+        <span className="eyebrow">{t('common.projectBrief')}</span>
         <h3>Thong tin dieu hanh</h3>
         <div className="campaign-info-list">
-          <div><span>Project owner</span><strong>{project.owner}</strong></div>
-          <div><span>Sponsor</span><strong>{project.sponsor}</strong></div>
+          <div><span>{t('common.owner')}</span><strong>{project.owner}</strong></div>
+          <div><span>{t('common.sponsor')}</span><strong>{project.sponsor}</strong></div>
           <div><span>Thoi gian</span><strong>{project.start} - {project.end}</strong></div>
           <div><span>Ngan sach</span><strong>{project.budget}</strong></div>
         </div>
@@ -438,6 +441,7 @@ function BoardView({ tasks, onMoveTask, focusTaskId, canUpdateTask }) {
 }
 
 function TimelineView({ tasks, project }) {
+  const { t } = useLanguage();
   const phases = [...new Set(tasks.map((task) => task.phase))];
   const timelineStart = new Date(`${project.start || new Date().toISOString().slice(0, 10)}T00:00:00`);
   const projectEnd = new Date(`${project.end || project.start || new Date().toISOString().slice(0, 10)}T00:00:00`);
@@ -458,14 +462,14 @@ function TimelineView({ tasks, project }) {
     <section className="panel campaign-timeline-panel">
       <div className="campaign-timeline-toolbar">
         <div>
-          <span className="eyebrow">Microsoft Project style</span>
-          <h3>Timeline va dependency</h3>
+          <span className="eyebrow">{t('common.timeline')}</span>
+          <h3>Tien do va quan he cong viec</h3>
         </div>
         <div className="campaign-timeline-legend">
           <span><i className="done" /> Hoan thanh</span>
           <span><i className="active" /> Dang lam</span>
           <span><i className="future" /> Ke hoach</span>
-          <span><i className="milestone" /> Milestone</span>
+          <span><i className="milestone" /> {t('common.milestone')}</span>
         </div>
       </div>
 
@@ -543,6 +547,7 @@ export function CampaignProjectDemo({
   canUpdateTask = () => true,
   onTaskStatusChange
 }) {
+  const { t } = useLanguage();
   const [projectId, setProjectId] = useState(initialProjectId);
   const [activeView, setActiveView] = useState(
     () => initialView || new URLSearchParams(window.location.search).get('demoTab') || 'overview'
@@ -591,10 +596,10 @@ export function CampaignProjectDemo({
 
       <div className="campaign-view-toolbar">
         <div className="campaign-view-tabs">
-          {views.map(({ id, label, icon: Icon }) => (
+          {views.map(({ id, labelKey, icon: Icon }) => (
             <button className={activeView === id ? 'active' : ''} key={id} onClick={() => setActiveView(id)}>
               <Icon size={17} />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>

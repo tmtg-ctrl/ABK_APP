@@ -1,8 +1,11 @@
 import { AlertCircle, CheckCircle2, ClipboardList, Users } from 'lucide-react';
 import { Metric } from '../../shared/components/Metric';
-import { STATUS_OPTIONS, statusLabels } from '../../shared/constants/marketing';
+import { STATUS_OPTIONS, getStatusLabels } from '../../shared/constants/marketing';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 
 export function Dashboard({ tasks, employees, isManager, onOpenTasks }) {
+  const { language, t } = useLanguage();
+  const statusLabels = getStatusLabels(language);
   const counts = STATUS_OPTIONS.reduce((acc, status) => {
     acc[status] = tasks.filter((task) => task.status === status).length;
     return acc;
@@ -10,15 +13,15 @@ export function Dashboard({ tasks, employees, isManager, onOpenTasks }) {
 
   return (
     <div className="dashboard-grid">
-      <Metric icon={ClipboardList} label="Marketing tasks" value={tasks.length} tone="green" />
-      <Metric icon={Users} label="Marketing employees" value={isManager ? employees.length : '-'} tone="blue" />
-      <Metric icon={AlertCircle} label="In review" value={counts.review || 0} tone="amber" />
-      <Metric icon={CheckCircle2} label="Completed" value={(counts.approved || 0) + (counts.done || 0)} tone="violet" />
+      <Metric icon={ClipboardList} label={t('dashboard.marketingTasks')} value={tasks.length} tone="green" />
+      <Metric icon={Users} label={t('dashboard.employees')} value={isManager ? employees.length : '-'} tone="blue" />
+      <Metric icon={AlertCircle} label={t('dashboard.inReview')} value={counts.review || 0} tone="amber" />
+      <Metric icon={CheckCircle2} label={t('dashboard.completed')} value={(counts.approved || 0) + (counts.done || 0)} tone="violet" />
 
       <section className="wide-panel">
         <div className="section-heading">
-          <h3>Status Overview</h3>
-          <button className="text-action" onClick={onOpenTasks}>Open tasks</button>
+          <h3>{t('dashboard.statusOverview')}</h3>
+          <button className="text-action" onClick={onOpenTasks}>{t('dashboard.openTasks')}</button>
         </div>
         <div className="status-row">
           {STATUS_OPTIONS.map((status) => (

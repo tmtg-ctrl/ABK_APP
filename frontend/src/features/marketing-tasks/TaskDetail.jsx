@@ -8,15 +8,19 @@ import {
   PRIORITY_OPTIONS,
   STATUS_OPTIONS,
   WORK_TYPES_BY_TEAM,
-  priorityLabels,
-  statusLabels,
+  getPriorityLabels,
+  getStatusLabels,
   teamLabels,
   workTypeLabels
 } from '../../shared/constants/marketing';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import { apiRequest } from '../../shared/services/api';
 import { getChecklistProgress, isTaskCompleted } from '../../shared/utils/tasks';
 
 export function TaskDetail({ task, employees, isManager, token, currentUser, onChanged }) {
+  const { language, t } = useLanguage();
+  const priorityLabels = getPriorityLabels(language);
+  const statusLabels = getStatusLabels(language);
   const directory = employees.some((employee) => employee.id === currentUser.id)
     ? employees
     : [...employees, {
@@ -115,7 +119,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
   return (
     <div className="detail-stack">
       <div>
-        <span className="eyebrow">Task detail</span>
+        <span className="eyebrow">{t('common.taskDetail')}</span>
         <h3>{form.title}</h3>
         <p>{form.description || 'Chua co mo ta'}</p>
       </div>
@@ -124,7 +128,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
         <Badge value={task.priority} tone={task.priority} />
         <Badge value={teamLabels[task.team] || task.team || 'Media'} />
         {task.work_type && <Badge value={workTypeLabels[task.work_type] || task.work_type} />}
-        <span>{task.deadline || 'No deadline'}</span>
+        <span>{task.deadline || t('common.noDeadline')}</span>
       </div>
       <div className="form-stack">
         <label>
@@ -155,7 +159,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
         </label>
         <div className="two-column">
           <label>
-            Status
+            {t('common.status')}
             <select disabled={!canParticipate} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
               {STATUS_OPTIONS.map((status) => (
                 <option value={status} key={status}>{statusLabels[status]}</option>
@@ -163,7 +167,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
             </select>
           </label>
           <label>
-            Priority
+            {t('common.priority')}
             <select disabled={!canCoordinate} value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
               {PRIORITY_OPTIONS.map((priority) => (
                 <option value={priority} key={priority}>{priorityLabels[priority]}</option>
@@ -173,7 +177,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
         </div>
         <div className="two-column">
           <label>
-            Team
+            {t('common.team')}
             <select
               value={form.team}
               disabled={!canCoordinate}
@@ -192,7 +196,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
             </select>
           </label>
           <label>
-            Work type
+            {t('common.workType')}
             <select disabled={!canCoordinate} value={form.work_type} onChange={(event) => setForm({ ...form, work_type: event.target.value })}>
               {(WORK_TYPES_BY_TEAM[form.team] || []).map((workType) => (
                 <option value={workType} key={workType}>{workTypeLabels[workType]}</option>
@@ -201,12 +205,12 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
           </label>
         </div>
         <label>
-          Deadline
+          {t('common.deadline')}
           <input disabled={!canCoordinate} type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} />
         </label>
         {isManager ? (
           <label>
-            Assignee
+            {t('common.assignee')}
             <select
               value={form.assignee_id}
               onChange={(event) => setForm({
@@ -215,7 +219,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
                 collaborator_ids: form.collaborator_ids.filter((id) => id !== event.target.value)
               })}
             >
-              <option value="">Unassigned</option>
+              <option value="">{t('common.unassigned')}</option>
               {directory.map((employee) => (
                 <option value={employee.id} key={employee.id}>{employee.email}</option>
               ))}
@@ -223,8 +227,8 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
           </label>
         ) : (
           <div className="read-only-line">
-            <span>Assignee</span>
-            <strong>{assignee?.email || (task.assignee_id === currentUser.id ? currentUser.email : 'Unassigned')}</strong>
+            <span>{t('common.assignee')}</span>
+            <strong>{assignee?.email || (task.assignee_id === currentUser.id ? currentUser.email : t('common.unassigned'))}</strong>
           </div>
         )}
         <div className="two-column">
@@ -259,7 +263,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
           <div className="section-heading">
             <div>
               <span className="eyebrow">Tien do dau viec</span>
-              <h4><ClipboardCheck size={16} /> Checklist</h4>
+              <h4><ClipboardCheck size={16} /> {t('common.checklist')}</h4>
             </div>
             <strong>{checklistProgress.completed}/{checklistProgress.total}</strong>
           </div>

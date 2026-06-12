@@ -18,6 +18,7 @@ import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
 import { MARKETING_TEAMS, teamLabels, workTypeLabels } from '../../shared/constants/marketing';
 import { apiRequest } from '../../shared/services/api';
+import { useLanguage } from '../../shared/i18n/LanguageContext';
 import {
   TASK_BUCKET_LABELS,
   getChecklistProgress,
@@ -58,6 +59,7 @@ function TaskListRow({
   onSelect,
   onQuickUpdate
 }) {
+  const { t } = useLanguage();
   const bucket = getTaskBucket(task.status);
   const dueState = getTaskDueState(task);
   const checklist = getChecklistProgress(task);
@@ -216,7 +218,7 @@ export function TaskWorkspace({
     <div className="assigned-task-workspace">
       <section className="assigned-task-heading">
         <div>
-          <span className="eyebrow">{mode === 'manage' ? 'Task management' : 'My work'}</span>
+          <span className="eyebrow">{mode === 'manage' ? t('task.management') : t('task.myWork')}</span>
           <h3>{mode === 'manage' ? 'Quan ly cong viec Marketing' : 'Task duoc giao'}</h3>
           <p>
             {mode === 'manage'
@@ -298,7 +300,7 @@ export function TaskWorkspace({
               </div>
             )}
             <label className="filter-field">
-              <span>Team</span>
+              <span>{t('common.team')}</span>
               <select
                 value={draftFilters.team}
                 onChange={(event) => setDraftFilters({ ...draftFilters, team: event.target.value })}
