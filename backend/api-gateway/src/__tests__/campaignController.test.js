@@ -147,6 +147,53 @@ describe('Campaign Controller', () => {
     expect(campaignService.createWeeklyPlan).not.toHaveBeenCalled();
   });
 
+  it('allows marketing staff to create a future weekly calendar', async () => {
+    campaignService.getWeeklyPlanByWeekStart.mockResolvedValue(null);
+    campaignService.createWeeklyPlan.mockResolvedValue({
+      id: 'plan-future',
+      week_start: '2026-07-06',
+      week_end: '2026-07-12'
+    });
+    const req = {
+      user: staffUser,
+      body: {
+        week_start: '2026-07-06',
+        week_end: '2026-07-12',
+        status: 'member_planning'
+      }
+    };
+    const res = createResponse();
+
+    await campaignController.createWeeklyPlan(req, res, next);
+
+    expect(campaignService.createWeeklyPlan).toHaveBeenCalledWith(expect.objectContaining({
+      weekStart: '2026-07-06',
+      status: 'member_planning',
+      userId: 'staff-1'
+    }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('prevents a manager from scheduling a task assigned to another employee', async () => {
+    marketingTaskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'manager-1',
+      assignee_id: 'staff-1',
+      collaborator_ids: []
+    });
+    const req = {
+      user: managerUser,
+      params: { planId: 'plan-1' },
+      body: { task_id: 'task-1', planned_date: '2026-06-10' }
+    };
+    const res = createResponse();
+
+    await campaignController.addAllocation(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(campaignService.addWeeklyAllocation).not.toHaveBeenCalled();
+  });
+
   it('removes a task allocation from a weekly plan', async () => {
     campaignService.getWeeklyPlanById.mockResolvedValue({
       id: 'plan-1',

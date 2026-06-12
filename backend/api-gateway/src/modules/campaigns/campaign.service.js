@@ -262,8 +262,11 @@ const addWeeklyAllocation = async (planId, input) => {
 
   if (!plan) return { plan: null, reason: 'plan_not_found' };
   if (!task) return { plan, reason: 'task_not_found' };
-  if (['committed', 'closed'].includes(plan.status)) {
+  if (plan.status === 'closed') {
     return { plan, reason: 'plan_locked' };
+  }
+  if (input.plannedDate && (input.plannedDate < plan.week_start || input.plannedDate > plan.week_end)) {
+    return { plan, reason: 'date_outside_plan' };
   }
   if (plan.allocations.some((allocation) => allocation.task_id === input.taskId)) {
     return { plan, reason: 'duplicate_task' };
@@ -295,8 +298,11 @@ const addWeeklyAllocation = async (planId, input) => {
 const updateWeeklyAllocation = async (planId, allocationId, input) => {
   const plan = await getWeeklyPlanById(planId);
   if (!plan) return { plan: null, reason: 'plan_not_found' };
-  if (['committed', 'closed'].includes(plan.status)) {
+  if (plan.status === 'closed') {
     return { plan, reason: 'plan_locked' };
+  }
+  if (input.plannedDate && (input.plannedDate < plan.week_start || input.plannedDate > plan.week_end)) {
+    return { plan, reason: 'date_outside_plan' };
   }
 
   const existing = plan.allocations.find((allocation) => allocation.id === allocationId);
@@ -330,7 +336,7 @@ const updateWeeklyAllocation = async (planId, allocationId, input) => {
 const removeWeeklyAllocation = async (planId, allocationId) => {
   const plan = await getWeeklyPlanById(planId);
   if (!plan) return { plan: null, reason: 'plan_not_found' };
-  if (['committed', 'closed'].includes(plan.status)) {
+  if (plan.status === 'closed') {
     return { plan, reason: 'plan_locked' };
   }
 

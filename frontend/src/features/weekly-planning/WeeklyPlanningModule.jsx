@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CalendarCheck2,
   CheckCircle2,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   ClipboardCheck,
-  FolderKanban,
   GripVertical,
   History,
   LayoutGrid,
@@ -16,8 +16,7 @@ import {
   RefreshCw,
   Trash2,
   UserRound,
-  Users,
-  Wrench
+  Users
 } from 'lucide-react';
 import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect';
 import { FilterMenu } from '../../shared/components/FilterMenu';
@@ -37,14 +36,6 @@ import {
   getWeekRange,
   useCampaignWorkspace
 } from '../campaign-projects/useCampaignWorkspace';
-
-const statusLabels = {
-  draft: 'Ban nhap',
-  member_planning: 'Nhan vien dang lap lich',
-  leader_review: 'Leader dang duyet',
-  committed: 'Da chot',
-  closed: 'Da dong'
-};
 
 const taskStatusLabels = {
   backlog: 'Backlog',
@@ -94,18 +85,13 @@ function WeeklyMetric({ icon: Icon, label, value, detail, tone = '' }) {
   );
 }
 
-function AddTaskForm({ plan, tasks, projects, currentUser, isManager, token, onSaved }) {
+function AddTaskForm({ plan, tasks, projects, currentUser, token, onSaved }) {
   const existingTaskIds = new Set(plan.allocations.map((allocation) => allocation.task_id));
   const availableTasks = tasks.filter((task) => (
     !task.milestone
     && !existingTaskIds.has(task.id)
     && task.status !== 'done'
-    && (
-      isManager
-      || task.assignee_id === currentUser.id
-      || task.created_by === currentUser.id
-      || task.collaborator_ids.includes(currentUser.id)
-    )
+    && task.assignee_id === currentUser.id
   ));
   const [form, setForm] = useState({
     task_id: availableTasks[0]?.id || '',
@@ -140,13 +126,17 @@ function AddTaskForm({ plan, tasks, projects, currentUser, isManager, token, onS
   };
 
   if (!availableTasks.length) {
-    return <div className="empty-state">Khong con Task phu hop de dua vao tuan nay.</div>;
+    return (
+      <div className="empty-state">
+        Ban khong con cong viec duoc giao nao de xep vao tuan nay.
+      </div>
+    );
   }
 
   return (
     <form className="form-stack create-form" onSubmit={submit}>
       <label>
-        Chon Task co san
+        Chon cong viec duoc giao
         <select value={form.task_id} onChange={(event) => setForm({ ...form, task_id: event.target.value })}>
           {availableTasks.map((task) => (
             <option value={task.id} key={task.id}>
@@ -181,159 +171,7 @@ function AddTaskForm({ plan, tasks, projects, currentUser, isManager, token, onS
       {error && <InlineError message={error} />}
       <button className="primary-action" disabled={saving || !form.task_id}>
         {saving ? <RefreshCw className="spin" size={17} /> : <ListPlus size={17} />}
-        Dua Task vao tuan
-      </button>
-    </form>
-  );
-}
-
-function OperationTaskForm({ plan, employees, currentUser, isManager, token, onSaved }) {
-  const directory = buildDirectory(employees, currentUser);
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    team: 'content',
-    priority: 'medium',
-    assignee_id: currentUser.id,
-    owner_name: currentUser.email,
-    collaborator_ids: [],
-    planned_date: plan.week_start,
-    estimated_hours: 4
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setSaving(true);
-    setError('');
-    try {
-      const result = await apiRequest('/api/marketing/tasks', {
-        method: 'POST',
-        token,
-        body: {
-          title: form.title,
-          description: form.description,
-          team: form.team,
-          priority: form.priority,
-          assignee_id: form.assignee_id || currentUser.id,
-          owner_name: form.owner_name,
-          collaborator_ids: form.collaborator_ids,
-          work_context: 'operation',
-          start_date: form.planned_date,
-          deadline: plan.week_end,
-          status: 'todo'
-        }
-      });
-      await apiRequest(`/api/marketing/projects/weekly-plans/${plan.id}/allocations`, {
-        method: 'POST',
-        token,
-        body: {
-          task_id: result.task.id,
-          planned_date: form.planned_date,
-          estimated_hours: Number(form.estimated_hours),
-          commitment_status: 'planned'
-        }
-      });
-      await onSaved();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <form className="form-stack create-form" onSubmit={submit}>
-      <label>
-        Ten cong viec van hanh
-        <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
-      </label>
-      <label>
-        Ket qua can ban giao
-        <textarea rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
-      </label>
-      <div className="two-column">
-        <label>
-          Team
-          <select value={form.team} onChange={(event) => setForm({ ...form, team: event.target.value })}>
-            <option value="content">Content</option>
-            <option value="media">Media</option>
-            <option value="sale">Sale</option>
-            <option value="performance">Performance</option>
-            <option value="event">Event</option>
-          </select>
-        </label>
-        <label>
-          Uu tien
-          <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
-            <option value="low">Thap</option>
-            <option value="medium">Trung binh</option>
-            <option value="high">Cao</option>
-          </select>
-        </label>
-      </div>
-      {isManager && (
-        <label>
-          Nguoi phu trach
-          <select
-            value={form.assignee_id}
-            onChange={(event) => {
-              const employee = directory.find((item) => item.id === event.target.value);
-              setForm({
-                ...form,
-                assignee_id: event.target.value,
-                owner_name: employee?.email || currentUser.email,
-                collaborator_ids: form.collaborator_ids.filter((id) => id !== event.target.value)
-              });
-            }}
-          >
-            <option value={currentUser.id}>{currentUser.email}</option>
-            {directory.filter((employee) => employee.id !== currentUser.id).map((employee) => (
-              <option value={employee.id} key={employee.id}>{employee.email}</option>
-            ))}
-          </select>
-        </label>
-      )}
-      {!isManager && (
-        <div className="read-only-line">
-          <span>Nguoi phu trach chinh</span>
-          <strong>{currentUser.email}</strong>
-        </div>
-      )}
-      <EmployeeMultiSelect
-        employees={directory}
-        selectedIds={form.collaborator_ids}
-        excludedIds={[form.assignee_id]}
-        onChange={(collaboratorIds) => setForm({ ...form, collaborator_ids: collaboratorIds })}
-      />
-      <div className="two-column">
-        <label>
-          Ngay thuc hien
-          <input
-            type="date"
-            min={plan.week_start}
-            max={plan.week_end}
-            value={form.planned_date}
-            onChange={(event) => setForm({ ...form, planned_date: event.target.value })}
-          />
-        </label>
-        <label>
-          So gio du kien
-          <input
-            type="number"
-            min="0.5"
-            max="40"
-            step="0.5"
-            value={form.estimated_hours}
-            onChange={(event) => setForm({ ...form, estimated_hours: event.target.value })}
-          />
-        </label>
-      </div>
-      {error && <InlineError message={error} />}
-      <button className="primary-action" disabled={saving}>
-        {saving ? <RefreshCw className="spin" size={17} /> : <Wrench size={17} />}
-        Tao va dua vao tuan
+        Xep cong viec vao tuan
       </button>
     </form>
   );
@@ -350,13 +188,16 @@ function WeeklyTaskDetails({
 }) {
   const directory = buildDirectory(employees, currentUser);
   const employeeById = Object.fromEntries(directory.map((employee) => [employee.id, employee]));
-  const canCoordinate = isManager || task.created_by === currentUser.id || task.assignee_id === currentUser.id;
-  const canParticipate = canCoordinate || task.collaborator_ids.includes(currentUser.id);
+  const canCoordinate = isManager || task.created_by === currentUser.id;
+  const canParticipate = canCoordinate
+    || task.assignee_id === currentUser.id
+    || task.collaborator_ids.includes(currentUser.id);
   const [form, setForm] = useState({
     title: task.title,
     description: task.description || '',
     deliverable: task.deliverable || '',
     status: task.status,
+    progress: Number(task.progress || 0),
     priority: task.priority,
     deadline: task.deadline || '',
     assignee_id: task.assignee_id || '',
@@ -393,6 +234,7 @@ function WeeklyTaskDetails({
           description: form.description,
           deliverable: form.deliverable,
           status: form.status,
+          progress: Number(form.progress),
           priority: form.priority,
           deadline: form.deadline || null,
           assignee_id: isManager ? form.assignee_id || null : undefined,
@@ -401,6 +243,7 @@ function WeeklyTaskDetails({
           checklist: form.checklist
         } : {
           status: form.status,
+          progress: Number(form.progress),
           checklist: form.checklist
         }
       });
@@ -454,7 +297,14 @@ function WeeklyTaskDetails({
           <select
             value={form.status}
             disabled={!canParticipate}
-            onChange={(event) => setForm({ ...form, status: event.target.value })}
+            onChange={(event) => {
+              const status = event.target.value;
+              setForm({
+                ...form,
+                status,
+                progress: ['approved', 'done'].includes(status) ? 100 : form.progress
+              });
+            }}
           >
             {Object.entries(taskStatusLabels).map(([value, label]) => (
               <option value={value} key={value}>{label}</option>
@@ -474,6 +324,22 @@ function WeeklyTaskDetails({
           </select>
         </label>
       </div>
+
+      <label className="weekly-progress-field">
+        <span>
+          Tien do thuc hien
+          <strong>{form.progress}%</strong>
+        </span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          value={form.progress}
+          disabled={!canParticipate}
+          onChange={(event) => setForm({ ...form, progress: Number(event.target.value) })}
+        />
+      </label>
 
       <div className="weekly-responsibility-grid">
         <div className="read-only-line">
@@ -652,6 +518,10 @@ function WeeklyTaskCard({
         <UserRound size={13} />
         <span>{task.owner}</span>
       </div>
+      <div className="weekly-card-progress">
+        <span><i style={{ width: `${task.progress || 0}%` }} /></span>
+        <b>{task.progress || 0}%</b>
+      </div>
       {!!task.collaborator_ids.length && (
         <div className="weekly-task-support">
           <Users size={13} />
@@ -761,6 +631,7 @@ function WeeklyListView({
                       <Clock3 size={13} />
                       {allocation.planned_date ? formatShortDate(allocation.planned_date) : 'Chua xep'}
                     </span>
+                    <span className="weekly-list-progress">{task.progress || 0}%</span>
                     <strong className="weekly-list-hours">{allocation.estimated_hours || 0}h</strong>
                   </article>
                 );
@@ -790,31 +661,26 @@ export function WeeklyPlanningModule({
     error: loadError,
     loadWorkspace
   } = useCampaignWorkspace(token);
-  const [selectedPlanId, setSelectedPlanId] = useState('');
-  const [scope, setScope] = useState('all');
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() => getWeekRange().weekStart);
+  const [temporaryPlan, setTemporaryPlan] = useState(null);
+  const [scope, setScope] = useState(isManager ? 'all' : 'mine');
+  const [employeeFilter, setEmployeeFilter] = useState('all');
   const [displayMode, setDisplayMode] = useState('list');
   const [taskFilter, setTaskFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
-  const [draftFilters, setDraftFilters] = useState({ scope: 'all', taskFilter: 'all' });
+  const [draftFilters, setDraftFilters] = useState({
+    scope: isManager ? 'all' : 'mine',
+    employee: 'all',
+    taskFilter: 'all'
+  });
   const [showAddTask, setShowAddTask] = useState(false);
-  const [showCreateOperation, setShowCreateOperation] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
-  const sortedPlans = useMemo(
-    () => [...weeklyPlans].sort((a, b) => (b.week_start || '').localeCompare(a.week_start || '')),
-    [weeklyPlans]
-  );
-
-  useEffect(() => {
-    if (!selectedPlanId && sortedPlans.length) {
-      const currentWeek = getWeekRange();
-      const current = sortedPlans.find((plan) => plan.week_start === currentWeek.weekStart);
-      setSelectedPlanId(current?.id || sortedPlans[0].id);
-    }
-  }, [selectedPlanId, sortedPlans]);
-
-  const selectedPlan = sortedPlans.find((plan) => plan.id === selectedPlanId) || sortedPlans[0];
+  const persistedPlan = weeklyPlans.find((plan) => plan.week_start === selectedWeekStart);
+  const selectedPlan = persistedPlan
+    || (temporaryPlan?.week_start === selectedWeekStart ? temporaryPlan : null);
+  const selectedRange = getWeekRange(new Date(`${selectedWeekStart}T12:00:00`));
   const directory = buildDirectory(employees, currentUser);
   const employeeById = Object.fromEntries(directory.map((employee) => [employee.id, employee]));
   const projectById = Object.fromEntries(projects.map((project) => [project.id, project]));
@@ -827,10 +693,13 @@ export function WeeklyPlanningModule({
     }))
     .filter((allocation) => allocation.task)
     .filter(({ task }) => {
+      const participates = task.assignee_id === currentUser.id
+        || task.created_by === currentUser.id
+        || task.collaborator_ids.includes(currentUser.id);
+      if (!isManager && !participates) return false;
+      if (employeeFilter !== 'all' && task.assignee_id !== employeeFilter) return false;
       if (scope === 'mine') {
-        return task.assignee_id === currentUser.id
-          || task.created_by === currentUser.id
-          || task.collaborator_ids.includes(currentUser.id);
+        return participates;
       }
       if (scope === 'campaign') return Boolean(task.projectId);
       if (scope === 'operation') return !task.projectId;
@@ -839,15 +708,25 @@ export function WeeklyPlanningModule({
   const visibleAllocations = taskFilter === 'all'
     ? allocations
     : allocations.filter(({ task }) => getTaskBucket(task.status) === taskFilter);
-  const days = selectedPlan
-    ? Array.from({ length: 7 }, (_, index) => addDays(selectedPlan.week_start, index))
-    : [];
+  const days = Array.from({ length: 7 }, (_, index) => addDays(selectedWeekStart, index));
   const today = new Date().toISOString().slice(0, 10);
-  const canSchedulePlan = ['draft', 'member_planning', 'leader_review'].includes(selectedPlan?.status);
+  const canSchedulePlan = !selectedPlan || selectedPlan.status !== 'closed';
   const canExecutePlan = selectedPlan?.status !== 'closed';
   const { weekStart: currentWeekStart } = getWeekRange();
-  const hasCurrentWeek = sortedPlans.some((plan) => plan.week_start === currentWeekStart);
-  const activeFilterCount = [scope !== 'all', taskFilter !== 'all'].filter(Boolean).length;
+  const existingTaskIds = new Set((selectedPlan?.allocations || []).map((allocation) => allocation.task_id));
+  const unscheduledCount = tasks.filter((task) => (
+    task.assignee_id
+    && (!isManager || employeeFilter === 'all' || task.assignee_id === employeeFilter)
+    && (isManager || task.assignee_id === currentUser.id)
+    && !task.milestone
+    && !isTaskCompleted(task)
+    && !existingTaskIds.has(task.id)
+  )).length;
+  const activeFilterCount = [
+    scope !== (isManager ? 'all' : 'mine'),
+    isManager && employeeFilter !== 'all',
+    taskFilter !== 'all'
+  ].filter(Boolean).length;
 
   const runAction = async (action) => {
     setSaving(true);
@@ -864,21 +743,47 @@ export function WeeklyPlanningModule({
     }
   };
 
-  const createCurrentWeek = async () => {
-    const { weekStart, weekEnd } = getWeekRange();
-    await runAction(async () => {
-      const result = await apiRequest('/api/marketing/projects/weekly-plans', {
-        method: 'POST',
-        token,
-        body: {
-          week_start: weekStart,
-          week_end: weekEnd,
-          title: `Ke hoach tuan ${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`,
-          status: 'member_planning'
-        }
-      });
-      setSelectedPlanId(result.plan.id);
+  const ensureSelectedPlan = async () => {
+    if (selectedPlan) return selectedPlan;
+    const result = await apiRequest('/api/marketing/projects/weekly-plans', {
+      method: 'POST',
+      token,
+      body: {
+        week_start: selectedRange.weekStart,
+        week_end: selectedRange.weekEnd,
+        title: `Lich cong viec ${formatShortDate(selectedRange.weekStart)} - ${formatShortDate(selectedRange.weekEnd)}`,
+        status: 'member_planning'
+      }
     });
+    setTemporaryPlan(result.plan);
+    await loadWorkspace();
+    return result.plan;
+  };
+
+  const openScheduleModal = async () => {
+    if (!unscheduledCount) {
+      setActionError('Ban khong co cong viec duoc giao nao can xep vao tuan nay.');
+      return;
+    }
+    setSaving(true);
+    setActionError('');
+    try {
+      await ensureSelectedPlan();
+      setShowAddTask(true);
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selectWeekFromDate = (date) => {
+    if (!date) return;
+    setSelectedWeekStart(getWeekRange(new Date(`${date}T12:00:00`)).weekStart);
+  };
+
+  const changeWeek = (offset) => {
+    setSelectedWeekStart(addDays(selectedWeekStart, offset * 7));
   };
 
   const updateAllocation = (allocationId, body) => runAction(() => apiRequest(
@@ -897,7 +802,9 @@ export function WeeklyPlanningModule({
       token,
       body: {
         status,
-        progress: status === 'done' ? 100 : ['backlog', 'todo'].includes(status) ? 0 : undefined
+        progress: ['approved', 'done'].includes(status)
+          ? 100
+          : ['backlog', 'todo'].includes(status) ? 0 : undefined
       }
     }
   ));
@@ -907,36 +814,16 @@ export function WeeklyPlanningModule({
     { method: 'DELETE', token }
   ));
 
-  const updatePlanStatus = (status) => runAction(() => apiRequest(
-    `/api/marketing/projects/weekly-plans/${selectedPlan.id}`,
-    { method: 'PUT', token, body: { status } }
-  ));
-
   if (loading && !weeklyPlans.length) {
     return <div className="empty-state"><RefreshCw className="spin" size={18} /> Dang tai ke hoach tuan...</div>;
-  }
-
-  if (!selectedPlan) {
-    return (
-      <section className="panel weekly-empty-state">
-        <CalendarCheck2 size={38} />
-        <h3>Chua co ke hoach cho tuan nay</h3>
-        <p>Leader tao khung tuan, sau do nhan vien dua Task Campaign hoac viec van hanh vao lich cua minh.</p>
-        {(loadError || actionError) && <InlineError message={loadError || actionError} />}
-        {isManager && (
-          <button className="primary-action" onClick={createCurrentWeek} disabled={saving}>
-            {saving ? <RefreshCw className="spin" size={17} /> : <Plus size={17} />}
-            Tao ke hoach tuan nay
-          </button>
-        )}
-      </section>
-    );
   }
 
   const completedCount = allocations.filter(({ task }) => isTaskCompleted(task)).length;
   const reviewCount = allocations.filter(({ task }) => task.status === 'review').length;
   const totalHours = allocations.reduce((sum, allocation) => sum + Number(allocation.estimated_hours || 0), 0);
-  const campaignCount = allocations.filter(({ task }) => task.projectId).length;
+  const averageProgress = allocations.length
+    ? Math.round(allocations.reduce((sum, { task }) => sum + Number(task.progress || 0), 0) / allocations.length)
+    : 0;
 
   return (
     <div className="weekly-planning">
@@ -944,223 +831,273 @@ export function WeeklyPlanningModule({
       <section className="weekly-planning-heading">
         <div>
           <span className="eyebrow">{t('weekly.eyebrow')}</span>
-          <h3>Cong viec tuan {formatWeekLabel(selectedPlan)}</h3>
-          <p>Day la lich thuc thi. Campaign chi cung cap muc tieu va Task, khong tao them ban sao cong viec.</p>
+          <h3>Lich cong viec {formatWeekLabel(selectedRange)}</h3>
+          <p>
+            Leader giao Task va theo doi. Nhan vien tu xep viec duoc giao vao ngay phu hop,
+            ke ca cac tuan trong tuong lai, sau do cap nhat tien do thuc hien.
+          </p>
         </div>
         <div className="weekly-heading-actions">
-          <label className="weekly-plan-picker">
-            <select value={selectedPlan.id} onChange={(event) => setSelectedPlanId(event.target.value)}>
-              {sortedPlans.map((plan) => (
-                <option value={plan.id} key={plan.id}>
-                  {formatWeekLabel(plan)} - {statusLabels[plan.status] || plan.status}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={15} />
-          </label>
-          {isManager && !hasCurrentWeek && (
-            <button className="secondary-action" onClick={createCurrentWeek} disabled={saving}>
-              <CalendarCheck2 size={16} />
-              Tao tuan nay
+          <div className="weekly-week-navigator">
+            <button type="button" className="icon-button" onClick={() => changeWeek(-1)} title="Tuan truoc">
+              <ChevronLeft size={17} />
+            </button>
+            <label>
+              <CalendarCheck2 size={15} />
+              <input
+                type="date"
+                value={selectedWeekStart}
+                onChange={(event) => selectWeekFromDate(event.target.value)}
+              />
+            </label>
+            <button type="button" className="icon-button" onClick={() => changeWeek(1)} title="Tuan sau">
+              <ChevronRight size={17} />
+            </button>
+            {selectedWeekStart !== currentWeekStart && (
+              <button type="button" className="secondary-action compact-action" onClick={() => setSelectedWeekStart(currentWeekStart)}>
+                Tuan nay
+              </button>
+            )}
+          </div>
+          {!isManager && (
+            <button className="primary-action" onClick={openScheduleModal} disabled={!canSchedulePlan || saving}>
+              {saving ? <RefreshCw className="spin" size={16} /> : <ListPlus size={16} />}
+              Xep viec cua toi
             </button>
           )}
-          <button className="secondary-action" onClick={() => setShowCreateOperation(true)} disabled={!canSchedulePlan}>
-            <Wrench size={16} />
-            Them viec van hanh
-          </button>
-          <button className="primary-action" onClick={() => setShowAddTask(true)} disabled={!canSchedulePlan}>
-            <ListPlus size={16} />
-            Chon Task co san
-          </button>
         </div>
       </section>
+
+      <div className="weekly-role-note">
+        <UserRound size={16} />
+        <span>
+          {isManager
+            ? 'Che do Leader: xem toan phong hoac loc theo tung nhan vien. Lich do nhan vien tu sap xep.'
+            : 'Chi ban moi co the xep ngay va so gio cho cong viec duoc giao chinh.'}
+        </span>
+      </div>
 
       <div className="weekly-metric-grid">
-        <WeeklyMetric icon={CalendarCheck2} label="Task trong tuan" value={allocations.length} detail={`${campaignCount} tu campaign`} />
-        <WeeklyMetric icon={Clock3} label="Tong tai du kien" value={`${totalHours}h`} detail="Tong gio cua bo loc hien tai" />
-        <WeeklyMetric icon={CheckCircle2} label="Hoan thanh" value={completedCount} detail={`${allocations.length ? Math.round((completedCount / allocations.length) * 100) : 0}% ke hoach`} tone="green" />
-        <WeeklyMetric icon={AlertTriangle} label="Cho leader duyet" value={reviewCount} detail="Can phan hoi de khong bi sot" tone="amber" />
-      </div>
-
-      <section className="panel weekly-control-bar">
-        <div className="weekly-control-filters">
-          <div className="applied-filter-summary">
-            <span>{visibleAllocations.length} cong viec dang hien thi</span>
-            {scope !== 'all' && (
-              <b>
-                {scope === 'mine' ? 'Cua toi' : scope === 'campaign' ? 'Campaign' : 'Van hanh'}
-              </b>
-            )}
-            {taskFilter !== 'all' && <b>{TASK_BUCKET_LABELS[taskFilter]}</b>}
-          </div>
-          <FilterMenu
-            open={filterOpen}
-            title="Loc cong viec tuan"
-            activeCount={activeFilterCount}
-            onOpen={() => {
-              setDraftFilters({ scope, taskFilter });
-              setFilterOpen(true);
-            }}
-            onClose={() => setFilterOpen(false)}
-            onApply={() => {
-              setScope(draftFilters.scope);
-              setTaskFilter(draftFilters.taskFilter);
-              setFilterOpen(false);
-            }}
-            onReset={() => {
-              setDraftFilters({ scope: 'all', taskFilter: 'all' });
-              setScope('all');
-              setTaskFilter('all');
-              setFilterOpen(false);
-            }}
-          >
-            <div className="filter-field">
-              <span>Pham vi cong viec</span>
-              <div className="filter-choice-grid two">
-                {[
-                  ['all', 'Toan phong'],
-                  ['mine', 'Cua toi'],
-                  ['campaign', 'Campaign'],
-                  ['operation', 'Van hanh']
-                ].map(([value, label]) => (
-                  <button
-                    type="button"
-                    className={draftFilters.scope === value ? 'active' : ''}
-                    onClick={() => setDraftFilters({ ...draftFilters, scope: value })}
-                    key={value}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="filter-field">
-              <span>Tien do</span>
-              <div className="filter-choice-grid two">
-                <button
-                  type="button"
-                  className={draftFilters.taskFilter === 'all' ? 'active' : ''}
-                  onClick={() => setDraftFilters({ ...draftFilters, taskFilter: 'all' })}
-                >
-                  Tat ca
-                </button>
-                {['pending', 'active', 'review', 'completed'].map((bucket) => (
-                  <button
-                    type="button"
-                    className={draftFilters.taskFilter === bucket ? 'active' : ''}
-                    onClick={() => setDraftFilters({ ...draftFilters, taskFilter: bucket })}
-                    key={bucket}
-                  >
-                    {TASK_BUCKET_LABELS[bucket]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </FilterMenu>
-        </div>
-        <div className="weekly-control-actions">
-          <div className="weekly-view-toggle">
-            <button className={displayMode === 'list' ? 'active' : ''} onClick={() => setDisplayMode('list')}>
-              <List size={15} /> Danh sach
-            </button>
-            <button className={displayMode === 'board' ? 'active' : ''} onClick={() => setDisplayMode('board')}>
-              <LayoutGrid size={15} /> Lich tuan
-            </button>
-          </div>
-          <div className="weekly-plan-status">
-            <span className={`weekly-status ${selectedPlan.status}`}>{statusLabels[selectedPlan.status]}</span>
-            {isManager && selectedPlan.status !== 'closed' && (
-              <select
-                value={selectedPlan.status}
-                disabled={saving}
-                onChange={(event) => updatePlanStatus(event.target.value)}
-              >
-                <option value="member_planning">Nhan vien lap lich</option>
-                <option value="leader_review">Leader duyet</option>
-                <option value="committed">Chot ke hoach</option>
-                <option value="closed">Dong tuan</option>
-              </select>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {displayMode === 'list' ? (
-        <WeeklyListView
-          allocations={visibleAllocations}
-          projectById={projectById}
-          employeeById={employeeById}
-          currentUser={currentUser}
-          isManager={isManager}
-          canExecutePlan={canExecutePlan}
-          onStatusChange={updateTaskStatus}
-          onOpen={setSelectedTaskId}
+        <WeeklyMetric
+          icon={CalendarCheck2}
+          label="Viec trong tuan"
+          value={allocations.length}
+          detail={`${unscheduledCount} viec ${isManager ? 'chua duoc xep' : 'cua ban chua xep'} tuan nay`}
         />
-      ) : (
-      <div className="weekly-board">
-        {[...days, 'unplanned'].map((date) => {
-          const dayAllocations = visibleAllocations.filter((allocation) => (
-            date === 'unplanned' ? !allocation.planned_date : allocation.planned_date === date
-          ));
-          const isToday = date === today;
-          return (
-            <section
-              className={`weekly-day-column ${isToday ? 'today' : ''}`}
-              key={date}
-              onDragOver={(event) => canSchedulePlan && event.preventDefault()}
-              onDrop={(event) => {
-                const allocationId = event.dataTransfer.getData('text/allocation-id');
-                if (allocationId && canSchedulePlan) moveAllocation(allocationId, date === 'unplanned' ? null : date);
-              }}
-            >
-              <header>
-                <div>
-                  <span>{date === 'unplanned' ? 'CHUA XEP' : weekdayLabels[new Date(`${date}T00:00:00`).getDay()]}</span>
-                  <strong>{date === 'unplanned' ? 'Backlog tuan' : formatShortDate(date)}</strong>
-                </div>
-                <b>{dayAllocations.length}</b>
-              </header>
-              <div className="weekly-day-stack">
-                {dayAllocations.map((allocation) => {
-                  const task = allocation.task;
-                  const ownsTask = isManager
-                    || task.assignee_id === currentUser.id
-                    || task.created_by === currentUser.id;
-                  const participatesInTask = ownsTask || task.collaborator_ids.includes(currentUser.id);
-                  const displayTask = {
-                    ...task,
-                    owner: employeeById[task.assignee_id]?.email || task.owner
-                  };
-                  return (
-                    <WeeklyTaskCard
-                      allocation={allocation}
-                      task={displayTask}
-                      project={projectById[task.projectId]}
-                      canSchedule={canSchedulePlan && ownsTask}
-                      canUpdateTask={canExecutePlan && participatesInTask}
-                      onMove={moveAllocation}
-                      onHoursChange={(allocationId, hours) => updateAllocation(allocationId, {
-                        estimated_hours: Number(hours)
-                      })}
-                      onStatusChange={updateTaskStatus}
-                      onRemove={removeAllocation}
-                      onOpen={() => setSelectedTaskId(task.id)}
-                      key={allocation.id}
-                    />
-                  );
-                })}
-                {!dayAllocations.length && <div className="weekly-day-empty">Tha Task vao day</div>}
-              </div>
-            </section>
-          );
-        })}
+        <WeeklyMetric icon={Clock3} label="Tong tai du kien" value={`${totalHours}h`} detail="Tong so gio theo bo loc hien tai" />
+        <WeeklyMetric icon={CheckCircle2} label="Tien do trung binh" value={`${averageProgress}%`} detail={`${completedCount} cong viec da hoan thanh`} tone="green" />
+        <WeeklyMetric icon={AlertTriangle} label="Cho Leader duyet" value={reviewCount} detail="Cong viec dang cho phan hoi" tone="amber" />
       </div>
+
+      {!selectedPlan ? (
+        <section className="panel weekly-empty-state">
+          <CalendarCheck2 size={38} />
+          <h3>Tuan nay chua co cong viec duoc xep lich</h3>
+          <p>
+            {isManager
+              ? 'Khi nhan vien xep cong viec duoc giao vao tuan nay, danh sach va tien do se xuat hien tai day.'
+              : 'Chon "Xep viec cua toi" de dua cong viec da duoc giao vao ngay ban du kien thuc hien.'}
+          </p>
+          {!isManager && (
+            <button className="primary-action" onClick={openScheduleModal} disabled={saving}>
+              {saving ? <RefreshCw className="spin" size={17} /> : <ListPlus size={17} />}
+              Xep cong viec vao tuan nay
+            </button>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="panel weekly-control-bar">
+            <div className="weekly-control-filters">
+              <div className="applied-filter-summary">
+                <span>{visibleAllocations.length} cong viec dang hien thi</span>
+                {isManager && employeeFilter !== 'all' && <b>{employeeById[employeeFilter]?.email}</b>}
+                {scope !== (isManager ? 'all' : 'mine') && (
+                  <b>{scope === 'mine' ? 'Cua toi' : scope === 'campaign' ? 'Campaign' : 'Van hanh'}</b>
+                )}
+                {taskFilter !== 'all' && <b>{TASK_BUCKET_LABELS[taskFilter]}</b>}
+              </div>
+              <FilterMenu
+                open={filterOpen}
+                title="Loc lich cong viec"
+                activeCount={activeFilterCount}
+                onOpen={() => {
+                  setDraftFilters({ scope, employee: employeeFilter, taskFilter });
+                  setFilterOpen(true);
+                }}
+                onClose={() => setFilterOpen(false)}
+                onApply={() => {
+                  setScope(draftFilters.scope);
+                  setEmployeeFilter(draftFilters.employee);
+                  setTaskFilter(draftFilters.taskFilter);
+                  setFilterOpen(false);
+                }}
+                onReset={() => {
+                  const defaultScope = isManager ? 'all' : 'mine';
+                  setDraftFilters({ scope: defaultScope, employee: 'all', taskFilter: 'all' });
+                  setScope(defaultScope);
+                  setEmployeeFilter('all');
+                  setTaskFilter('all');
+                  setFilterOpen(false);
+                }}
+              >
+                {isManager && (
+                  <label className="filter-field">
+                    <span>Nhan vien phu trach</span>
+                    <select
+                      value={draftFilters.employee}
+                      onChange={(event) => setDraftFilters({ ...draftFilters, employee: event.target.value })}
+                    >
+                      <option value="all">Tat ca nhan vien</option>
+                      {directory.map((employee) => (
+                        <option value={employee.id} key={employee.id}>{employee.email}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div className="filter-field">
+                  <span>Pham vi cong viec</span>
+                  <div className="filter-choice-grid two">
+                    {[
+                      ...(isManager ? [['all', 'Toan phong']] : []),
+                      ['mine', 'Cua toi'],
+                      ['campaign', 'Campaign'],
+                      ['operation', 'Van hanh']
+                    ].map(([value, label]) => (
+                      <button
+                        type="button"
+                        className={draftFilters.scope === value ? 'active' : ''}
+                        onClick={() => setDraftFilters({ ...draftFilters, scope: value })}
+                        key={value}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="filter-field">
+                  <span>Tien do</span>
+                  <div className="filter-choice-grid two">
+                    <button
+                      type="button"
+                      className={draftFilters.taskFilter === 'all' ? 'active' : ''}
+                      onClick={() => setDraftFilters({ ...draftFilters, taskFilter: 'all' })}
+                    >
+                      Tat ca
+                    </button>
+                    {['pending', 'active', 'review', 'completed'].map((bucket) => (
+                      <button
+                        type="button"
+                        className={draftFilters.taskFilter === bucket ? 'active' : ''}
+                        onClick={() => setDraftFilters({ ...draftFilters, taskFilter: bucket })}
+                        key={bucket}
+                      >
+                        {TASK_BUCKET_LABELS[bucket]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </FilterMenu>
+            </div>
+            <div className="weekly-control-actions">
+              <div className="weekly-view-toggle">
+                <button className={displayMode === 'list' ? 'active' : ''} onClick={() => setDisplayMode('list')}>
+                  <List size={15} /> Danh sach
+                </button>
+                <button className={displayMode === 'board' ? 'active' : ''} onClick={() => setDisplayMode('board')}>
+                  <LayoutGrid size={15} /> Lich theo ngay
+                </button>
+              </div>
+              <span className={`weekly-status ${selectedPlan.status}`}>
+                {selectedPlan.status === 'closed' ? 'Tuan da dong' : 'Lich dang mo'}
+              </span>
+            </div>
+          </section>
+
+          {displayMode === 'list' ? (
+            <WeeklyListView
+              allocations={visibleAllocations}
+              projectById={projectById}
+              employeeById={employeeById}
+              currentUser={currentUser}
+              isManager={isManager}
+              canExecutePlan={canExecutePlan}
+              onStatusChange={updateTaskStatus}
+              onOpen={setSelectedTaskId}
+            />
+          ) : (
+            <div className="weekly-board">
+              {[...days, 'unplanned'].map((date) => {
+                const dayAllocations = visibleAllocations.filter((allocation) => (
+                  date === 'unplanned' ? !allocation.planned_date : allocation.planned_date === date
+                ));
+                const isToday = date === today;
+                return (
+                  <section
+                    className={`weekly-day-column ${isToday ? 'today' : ''}`}
+                    key={date}
+                    onDragOver={(event) => canSchedulePlan && event.preventDefault()}
+                    onDrop={(event) => {
+                      const allocationId = event.dataTransfer.getData('text/allocation-id');
+                      if (allocationId && canSchedulePlan) {
+                        moveAllocation(allocationId, date === 'unplanned' ? null : date);
+                      }
+                    }}
+                  >
+                    <header>
+                      <div>
+                        <span>{date === 'unplanned' ? 'CHUA XEP' : weekdayLabels[new Date(`${date}T00:00:00`).getDay()]}</span>
+                        <strong>{date === 'unplanned' ? 'Chua chon ngay' : formatShortDate(date)}</strong>
+                      </div>
+                      <b>{dayAllocations.length}</b>
+                    </header>
+                    <div className="weekly-day-stack">
+                      {dayAllocations.map((allocation) => {
+                        const task = allocation.task;
+                        const ownsSchedule = task.assignee_id === currentUser.id;
+                        const participatesInTask = isManager
+                          || ownsSchedule
+                          || task.created_by === currentUser.id
+                          || task.collaborator_ids.includes(currentUser.id);
+                        return (
+                          <WeeklyTaskCard
+                            allocation={allocation}
+                            task={{
+                              ...task,
+                              owner: employeeById[task.assignee_id]?.email || task.owner
+                            }}
+                            project={projectById[task.projectId]}
+                            canSchedule={canSchedulePlan && ownsSchedule}
+                            canUpdateTask={canExecutePlan && participatesInTask}
+                            onMove={moveAllocation}
+                            onHoursChange={(allocationId, hours) => updateAllocation(allocationId, {
+                              estimated_hours: Number(hours)
+                            })}
+                            onStatusChange={updateTaskStatus}
+                            onRemove={removeAllocation}
+                            onOpen={() => setSelectedTaskId(task.id)}
+                            key={allocation.id}
+                          />
+                        );
+                      })}
+                      {!dayAllocations.length && (
+                        <div className="weekly-day-empty">
+                          {date === 'unplanned' ? 'Chua co viec cho xep ngay' : 'Chua co viec'}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
-      {showAddTask && (
+      {showAddTask && selectedPlan && (
         <Modal
-          title="Dua Task co san vao tuan"
-          description="Chon cong viec, ngay thuc hien va so gio du kien."
+          title="Xep cong viec vao tuan"
+          description="Chi hien thi cac cong viec ban la nguoi duoc giao chinh. Ban tu chon ngay lam va so gio du kien."
           className="create-modal"
           size="medium"
           onClose={() => setShowAddTask(false)}
@@ -1170,7 +1107,6 @@ export function WeeklyPlanningModule({
             tasks={tasks}
             projects={projects}
             currentUser={currentUser}
-            isManager={isManager}
             token={token}
             onSaved={async () => {
               await loadWorkspace();
@@ -1180,31 +1116,8 @@ export function WeeklyPlanningModule({
         </Modal>
       )}
 
-      {showCreateOperation && (
-        <Modal
-          title="Tao cong viec van hanh"
-          description="Tao nhanh viec noi bo va dua thang vao ke hoach tuan."
-          className="create-modal"
-          size="large"
-          onClose={() => setShowCreateOperation(false)}
-        >
-          <OperationTaskForm
-            plan={selectedPlan}
-            employees={employees}
-            currentUser={currentUser}
-            isManager={isManager}
-            token={token}
-            onSaved={async () => {
-              await loadWorkspace();
-              onWorkspaceChanged?.();
-              setShowCreateOperation(false);
-            }}
-          />
-        </Modal>
-      )}
-
       {selectedTaskId && taskById[selectedTaskId] && (
-        <Modal title="Chi tiet cong viec" onClose={() => setSelectedTaskId(null)} className="weekly-task-modal">
+        <Modal title="Chi tiet va tien do cong viec" onClose={() => setSelectedTaskId(null)} className="weekly-task-modal">
           <WeeklyTaskDetails
             task={{
               ...taskById[selectedTaskId],

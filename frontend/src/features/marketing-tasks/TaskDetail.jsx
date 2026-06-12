@@ -29,8 +29,10 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
         role: currentUser.role,
         position: currentUser.position
       }];
-  const canCoordinate = isManager || task.created_by === currentUser.id || task.assignee_id === currentUser.id;
-  const canParticipate = canCoordinate || (task.collaborator_ids || []).includes(currentUser.id);
+  const canCoordinate = isManager || task.created_by === currentUser.id;
+  const canParticipate = canCoordinate
+    || task.assignee_id === currentUser.id
+    || (task.collaborator_ids || []).includes(currentUser.id);
   const [form, setForm] = useState({
     title: task.title,
     description: task.description || '',

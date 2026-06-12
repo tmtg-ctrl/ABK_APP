@@ -31,7 +31,6 @@ const canAccessTask = (req, task) => {
 const canCoordinateTask = (req, task) => (
   canManageMarketing(req)
   || task.created_by === req.user.id
-  || task.assignee_id === req.user.id
 );
 
 const normalizeCollaboratorIds = (value, assigneeId) => {

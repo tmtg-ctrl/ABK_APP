@@ -136,4 +136,47 @@ describe('Marketing Task Controller', () => {
       assignedByName: undefined
     }));
   });
+
+  it('allows an assignee to update progress and status', async () => {
+    taskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'manager-1',
+      assignee_id: 'staff-1',
+      collaborator_ids: []
+    });
+    taskService.updateMarketingTask.mockResolvedValue({ id: 'task-1', progress: 60 });
+    const req = {
+      user: staffUser,
+      params: { taskId: 'task-1' },
+      body: { status: 'doing', progress: 60 }
+    };
+    const res = createResponse();
+
+    await taskController.updateTask(req, res, next);
+
+    expect(taskService.updateMarketingTask).toHaveBeenCalledWith(
+      'task-1',
+      expect.objectContaining({ status: 'doing', progress: 60 })
+    );
+  });
+
+  it('prevents an assignee from changing task definition fields', async () => {
+    taskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'manager-1',
+      assignee_id: 'staff-1',
+      collaborator_ids: []
+    });
+    const req = {
+      user: staffUser,
+      params: { taskId: 'task-1' },
+      body: { title: 'Changed by assignee', deadline: '2026-07-01' }
+    };
+    const res = createResponse();
+
+    await taskController.updateTask(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(taskService.updateMarketingTask).not.toHaveBeenCalled();
+  });
 });

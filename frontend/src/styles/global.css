@@ -1842,6 +1842,43 @@ select:focus {
   justify-content: flex-end;
 }
 
+.weekly-week-navigator {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.weekly-week-navigator label {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d5dbe5;
+  border-radius: 7px;
+  color: #667085;
+  display: flex;
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.weekly-week-navigator input {
+  border: 0;
+  box-shadow: none;
+  min-height: 36px;
+  padding: 5px 2px;
+  width: 132px;
+}
+
+.weekly-role-note {
+  align-items: center;
+  background: #edf6f2;
+  border: 1px solid #c8ded5;
+  border-radius: 8px;
+  color: #315f53;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
 .weekly-plan-picker {
   position: relative;
 }
@@ -2115,6 +2152,31 @@ select:focus {
   gap: 5px;
 }
 
+.weekly-card-progress {
+  align-items: center;
+  display: grid;
+  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.weekly-card-progress > span {
+  background: #e8edf2;
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.weekly-card-progress i {
+  background: #2f6f5f;
+  display: block;
+  height: 100%;
+}
+
+.weekly-card-progress b {
+  color: #526071;
+  font-size: 9px;
+}
+
 .weekly-task-controls {
   display: grid;
   gap: 6px;
@@ -2269,6 +2331,22 @@ select:focus {
 .weekly-task-detail {
   display: grid;
   gap: 13px;
+}
+
+.weekly-progress-field > span {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.weekly-progress-field > span strong {
+  color: #2f6f5f;
+}
+
+.weekly-progress-field input[type="range"] {
+  accent-color: #2f6f5f;
+  min-height: 24px;
+  padding: 0;
 }
 
 .weekly-task-detail-header {
@@ -3392,7 +3470,7 @@ select:focus {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
   padding: 9px;
 }
 
@@ -3437,6 +3515,15 @@ select:focus {
 .weekly-list-hours {
   color: #315f91;
   font-size: 11px;
+}
+
+.weekly-list-progress {
+  background: #e8f3ef;
+  border-radius: 999px;
+  color: #246550;
+  font-size: 10px;
+  font-weight: 850;
+  padding: 4px 7px;
 }
 
 .weekly-list-empty {
@@ -4791,7 +4878,8 @@ select:focus {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .weekly-list-date {
+  .weekly-list-date,
+  .weekly-list-progress {
     grid-column: 2;
   }
 
@@ -4810,7 +4898,21 @@ select:focus {
     flex-direction: column;
   }
 
-  .weekly-plan-picker select,
+  .weekly-week-navigator {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    width: 100%;
+  }
+
+  .weekly-week-navigator label,
+  .weekly-week-navigator label input {
+    width: 100%;
+  }
+
+  .weekly-week-navigator .secondary-action {
+    grid-column: 1 / -1;
+  }
+
   .weekly-heading-actions .primary-action,
   .weekly-heading-actions .secondary-action {
     width: 100%;
