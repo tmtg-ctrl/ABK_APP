@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Badge } from '../../shared/components/Badge';
 import { InlineError } from '../../shared/components/InlineError';
+import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect';
 import {
   MARKETING_TEAMS,
   PRIORITY_OPTIONS,
@@ -15,13 +16,23 @@ import {
 import { apiRequest } from '../../shared/services/api';
 
 export function TaskDetail({ task, employees, isManager, token, currentUser, onChanged }) {
+  const directory = employees.some((employee) => employee.id === currentUser.id)
+    ? employees
+    : [...employees, {
+        id: currentUser.id,
+        email: currentUser.email,
+        role: currentUser.role,
+        position: currentUser.position
+      }];
+  const canCoordinate = isManager || task.created_by === currentUser.id || task.assignee_id === currentUser.id;
   const [form, setForm] = useState({
     status: task.status,
     priority: task.priority,
     team: task.team || 'media',
     work_type: task.work_type || WORK_TYPES_BY_TEAM[task.team || 'media']?.[0] || '',
     deadline: task.deadline || '',
-    assignee_id: task.assignee_id || ''
+    assignee_id: task.assignee_id || '',
+    collaborator_ids: task.collaborator_ids || []
   });
   const [error, setError] = useState('');
 
@@ -32,7 +43,8 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
       team: task.team || 'media',
       work_type: task.work_type || WORK_TYPES_BY_TEAM[task.team || 'media']?.[0] || '',
       deadline: task.deadline || '',
-      assignee_id: task.assignee_id || ''
+      assignee_id: task.assignee_id || '',
+      collaborator_ids: task.collaborator_ids || []
     });
   }, [task.id]);
 
@@ -42,13 +54,19 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
       await apiRequest(`/api/marketing/tasks/${task.id}`, {
         method: 'PUT',
         token,
-        body: {
+        body: canCoordinate ? {
           status: form.status,
           priority: form.priority,
           team: form.team,
           work_type: form.work_type,
           deadline: form.deadline,
-          assignee_id: isManager ? form.assignee_id || null : undefined
+          assignee_id: isManager ? form.assignee_id || null : undefined,
+          owner_name: isManager
+            ? directory.find((employee) => employee.id === form.assignee_id)?.email || ''
+            : undefined,
+          collaborator_ids: form.collaborator_ids
+        } : {
+          status: form.status
         }
       });
       onChanged();
@@ -57,7 +75,9 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
     }
   };
 
-  const assignee = employees.find((employee) => employee.id === task.assignee_id);
+  const assignee = directory.find((employee) => employee.id === task.assignee_id);
+  const creator = directory.find((employee) => employee.id === task.created_by);
+  const assigner = directory.find((employee) => employee.id === task.assigned_by_id);
 
   return (
     <div className="detail-stack">
@@ -85,7 +105,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
           </label>
           <label>
             Priority
-            <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
+            <select disabled={!canCoordinate} value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
               {PRIORITY_OPTIONS.map((priority) => (
                 <option value={priority} key={priority}>{priorityLabels[priority]}</option>
               ))}
@@ -97,6 +117,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
             Team
             <select
               value={form.team}
+              disabled={!canCoordinate}
               onChange={(event) => {
                 const team = event.target.value;
                 setForm({
@@ -113,7 +134,7 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
           </label>
           <label>
             Work type
-            <select value={form.work_type} onChange={(event) => setForm({ ...form, work_type: event.target.value })}>
+            <select disabled={!canCoordinate} value={form.work_type} onChange={(event) => setForm({ ...form, work_type: event.target.value })}>
               {(WORK_TYPES_BY_TEAM[form.team] || []).map((workType) => (
                 <option value={workType} key={workType}>{workTypeLabels[workType]}</option>
               ))}
@@ -122,14 +143,21 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
         </div>
         <label>
           Deadline
-          <input type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} />
+          <input disabled={!canCoordinate} type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} />
         </label>
         {isManager ? (
           <label>
             Assignee
-            <select value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
+            <select
+              value={form.assignee_id}
+              onChange={(event) => setForm({
+                ...form,
+                assignee_id: event.target.value,
+                collaborator_ids: form.collaborator_ids.filter((id) => id !== event.target.value)
+              })}
+            >
               <option value="">Unassigned</option>
-              {employees.map((employee) => (
+              {directory.map((employee) => (
                 <option value={employee.id} key={employee.id}>{employee.email}</option>
               ))}
             </select>
@@ -138,6 +166,34 @@ export function TaskDetail({ task, employees, isManager, token, currentUser, onC
           <div className="read-only-line">
             <span>Assignee</span>
             <strong>{assignee?.email || (task.assignee_id === currentUser.id ? currentUser.email : 'Unassigned')}</strong>
+          </div>
+        )}
+        <div className="two-column">
+          <div className="read-only-line">
+            <span>Nguoi tao</span>
+            <strong>{task.creator_name || creator?.email || 'Khong ro'}</strong>
+          </div>
+          <div className="read-only-line">
+            <span>Nguoi giao gan nhat</span>
+            <strong>{task.assigned_by_name || assigner?.email || 'Khong ro'}</strong>
+          </div>
+        </div>
+        {canCoordinate ? (
+          <EmployeeMultiSelect
+            employees={directory}
+            selectedIds={form.collaborator_ids}
+            excludedIds={[form.assignee_id]}
+            onChange={(collaboratorIds) => setForm({ ...form, collaborator_ids: collaboratorIds })}
+          />
+        ) : (
+          <div className="read-only-line">
+            <span>Nguoi ho tro</span>
+            <strong>
+              {form.collaborator_ids
+                .map((id) => directory.find((employee) => employee.id === id)?.email)
+                .filter(Boolean)
+                .join(', ') || 'Khong co'}
+            </strong>
           </div>
         )}
         {error && <InlineError message={error} />}

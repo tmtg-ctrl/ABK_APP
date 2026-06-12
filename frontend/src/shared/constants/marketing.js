@@ -1,7 +1,7 @@
-export const STATUS_OPTIONS = ['todo', 'doing', 'review', 'approved', 'done'];
+export const STATUS_OPTIONS = ['backlog', 'todo', 'doing', 'review', 'revision', 'approved', 'blocked', 'done'];
 export const PRIORITY_OPTIONS = ['low', 'medium', 'high'];
 export const ROLE_OPTIONS = ['marketing_staff', 'marketing_manager'];
-export const MARKETING_TEAMS = ['media', 'sale', 'content'];
+export const MARKETING_TEAMS = ['media', 'sale', 'content', 'performance', 'event'];
 
 export const WORK_TYPES_BY_TEAM = {
   media: [
@@ -25,7 +25,9 @@ export const WORK_TYPES_BY_TEAM = {
     'post_review',
     'website_article',
     'fanpage_caption'
-  ]
+  ],
+  performance: ['campaign_setup', 'campaign_optimize', 'performance_report'],
+  event: ['event_plan', 'event_production', 'event_operation']
 };
 
 export const statusLabels = {
@@ -34,6 +36,9 @@ export const statusLabels = {
   review: 'Review',
   approved: 'Approved',
   done: 'Done',
+  backlog: 'Backlog',
+  revision: 'Revision',
+  blocked: 'Blocked',
   draft: 'Draft',
   scheduled: 'Scheduled',
   published: 'Published'
@@ -48,7 +53,9 @@ export const priorityLabels = {
 export const teamLabels = {
   media: 'Media',
   sale: 'Sale',
-  content: 'Content'
+  content: 'Content',
+  performance: 'Performance',
+  event: 'Event'
 };
 
 export const workTypeLabels = {
@@ -67,5 +74,11 @@ export const workTypeLabels = {
   post_write: 'Viet bai',
   post_review: 'Kiem noi dung',
   website_article: 'Bai website',
-  fanpage_caption: 'Caption fanpage'
+  fanpage_caption: 'Caption fanpage',
+  campaign_setup: 'Cai dat chien dich',
+  campaign_optimize: 'Toi uu chien dich',
+  performance_report: 'Bao cao hieu qua',
+  event_plan: 'Lap ke hoach su kien',
+  event_production: 'San xuat su kien',
+  event_operation: 'Van hanh su kien'
 };

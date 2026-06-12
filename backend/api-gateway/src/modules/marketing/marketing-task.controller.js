@@ -23,7 +23,21 @@ const canAccessTask = (req, task) => {
     return true;
   }
 
-  return task.created_by === req.user.id || task.assignee_id === req.user.id;
+  return task.created_by === req.user.id
+    || task.assignee_id === req.user.id
+    || task.collaborator_ids.includes(req.user.id);
+};
+
+const canCoordinateTask = (req, task) => (
+  canManageMarketing(req)
+  || task.created_by === req.user.id
+  || task.assignee_id === req.user.id
+);
+
+const normalizeCollaboratorIds = (value, assigneeId) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return null;
+  return [...new Set(value.filter((id) => typeof id === 'string' && id && id !== assigneeId))].slice(0, 20);
 };
 
 const requireMarketingAccess = (req, res) => {
@@ -79,6 +93,16 @@ exports.createTask = async (req, res, next) => {
       return res.status(400).json({ error: 'progress must be between 0 and 100' });
     }
 
+    if (assignee_id && assignee_id !== req.user.id && !canManageMarketing(req)) {
+      return res.status(403).json({ error: 'Only a marketing manager can assign a task to another employee' });
+    }
+
+    const primaryAssigneeId = assignee_id || req.user.id;
+    const normalizedCollaborators = normalizeCollaboratorIds(collaborator_ids, primaryAssigneeId);
+    if (normalizedCollaborators === null) {
+      return res.status(400).json({ error: 'collaborator_ids must be an array' });
+    }
+
     const task = await createMarketingTask({
       title,
       description,
@@ -90,10 +114,13 @@ exports.createTask = async (req, res, next) => {
       projectId: project_id,
       phaseId: phase_id,
       deliverable,
-      assigneeId: assignee_id,
-      ownerName: owner_name,
-      collaboratorIds: collaborator_ids,
+      assigneeId: primaryAssigneeId,
+      ownerName: owner_name || (primaryAssigneeId === req.user.id ? req.user.email : ''),
+      collaboratorIds: normalizedCollaborators,
       approverId: approver_id,
+      creatorName: req.user.email || '',
+      assignedById: req.user.id,
+      assignedByName: req.user.email || '',
       startDate: start_date,
       deadline,
       progress,
@@ -177,6 +204,17 @@ exports.updateTask = async (req, res, next) => {
       approver_id, start_date, deadline, progress, dependency_id, subtasks, checklist, status
     } = req.body;
 
+    const collaboratorOnly = !canCoordinateTask(req, existing);
+    const collaboratorAllowedFields = new Set(['status', 'progress', 'subtasks', 'checklist']);
+    const requestedFields = Object.entries(req.body)
+      .filter(([, value]) => value !== undefined)
+      .map(([field]) => field);
+    if (collaboratorOnly && requestedFields.some((field) => !collaboratorAllowedFields.has(field))) {
+      return res.status(403).json({
+        error: 'Support members can only update status, progress, subtasks, and checklist'
+      });
+    }
+
     if (assignee_id !== undefined && !canManageMarketing(req)) {
       return res.status(403).json({ error: 'Marketing manager permission required to assign tasks' });
     }
@@ -205,6 +243,17 @@ exports.updateTask = async (req, res, next) => {
       return res.status(400).json({ error: 'progress must be between 0 and 100' });
     }
 
+    if (collaborator_ids !== undefined && !canCoordinateTask(req, existing)) {
+      return res.status(403).json({ error: 'Task owner permission required to manage support members' });
+    }
+
+    const nextAssigneeId = assignee_id === undefined ? existing.assignee_id : assignee_id;
+    const normalizedCollaborators = normalizeCollaboratorIds(collaborator_ids, nextAssigneeId);
+    if (normalizedCollaborators === null) {
+      return res.status(400).json({ error: 'collaborator_ids must be an array' });
+    }
+    const assigneeChanged = assignee_id !== undefined && assignee_id !== existing.assignee_id;
+
     const task = await updateMarketingTask(req.params.taskId, {
       title,
       description,
@@ -218,7 +267,7 @@ exports.updateTask = async (req, res, next) => {
       deliverable,
       assigneeId: assignee_id,
       ownerName: owner_name,
-      collaboratorIds: collaborator_ids,
+      collaboratorIds: normalizedCollaborators,
       approverId: approver_id,
       startDate: start_date,
       deadline,
@@ -226,7 +275,11 @@ exports.updateTask = async (req, res, next) => {
       dependencyId: dependency_id,
       subtasks,
       checklist,
-      status
+      status,
+      assignedById: assigneeChanged ? req.user.id : undefined,
+      assignedByName: assigneeChanged ? req.user.email || '' : undefined,
+      actorId: req.user.id,
+      actorName: req.user.email || ''
     });
 
     res.status(200).json({
@@ -261,7 +314,12 @@ exports.assignTask = async (req, res, next) => {
     }
 
     const task = await updateMarketingTask(req.params.taskId, {
-      assigneeId: assignee_id
+      assigneeId: assignee_id,
+      collaboratorIds: normalizeCollaboratorIds(existing.collaborator_ids, assignee_id),
+      assignedById: req.user.id,
+      assignedByName: req.user.email || '',
+      actorId: req.user.id,
+      actorName: req.user.email || ''
     });
 
     res.status(200).json({

@@ -89,6 +89,7 @@ export function TaskWorkspace({ tasks, employees, selectedTask, isManager, token
             employees={employees}
             isManager={isManager}
             token={token}
+            currentUser={currentUser}
             onSaved={() => {
               setShowCreate(false);
               onChanged();

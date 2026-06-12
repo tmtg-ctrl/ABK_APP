@@ -276,7 +276,10 @@ const addWeeklyAllocation = async (planId, input) => {
     estimated_hours: Number(input.estimatedHours || 0),
     commitment_status: input.commitmentStatus || 'planned',
     carryover_reason: input.carryoverReason || '',
-    added_during_week: Boolean(input.addedDuringWeek)
+    added_during_week: Boolean(input.addedDuringWeek),
+    added_by_id: input.addedById || null,
+    added_by_name: input.addedByName || '',
+    added_at: new Date().toISOString()
   };
 
   const updated = await updateRecord({

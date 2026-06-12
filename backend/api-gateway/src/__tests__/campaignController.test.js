@@ -21,7 +21,12 @@ jest.mock('../modules/campaigns/campaign.service', () => ({
   seedDemoWorkspace: jest.fn()
 }));
 
+jest.mock('../modules/marketing/marketing-task.service', () => ({
+  getMarketingTaskById: jest.fn()
+}));
+
 const campaignService = require('../modules/campaigns/campaign.service');
+const marketingTaskService = require('../modules/marketing/marketing-task.service');
 const campaignController = require('../modules/campaigns/campaign.controller');
 
 const staffUser = {
@@ -87,6 +92,12 @@ describe('Campaign Controller', () => {
   });
 
   it('rejects a duplicate task in the same weekly plan', async () => {
+    marketingTaskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'staff-1',
+      assignee_id: 'staff-1',
+      collaborator_ids: []
+    });
     campaignService.addWeeklyAllocation.mockResolvedValue({
       reason: 'duplicate_task',
       plan: { id: 'plan-1' }
@@ -121,6 +132,16 @@ describe('Campaign Controller', () => {
   });
 
   it('removes a task allocation from a weekly plan', async () => {
+    campaignService.getWeeklyPlanById.mockResolvedValue({
+      id: 'plan-1',
+      allocations: [{ id: 'allocation-1', task_id: 'task-1' }]
+    });
+    marketingTaskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'staff-1',
+      assignee_id: 'staff-1',
+      collaborator_ids: []
+    });
     campaignService.removeWeeklyAllocation.mockResolvedValue({
       plan: { id: 'plan-1', allocations: [] },
       allocation: { id: 'allocation-1', task_id: 'task-1' }
@@ -138,6 +159,16 @@ describe('Campaign Controller', () => {
   });
 
   it('rejects allocation changes after the weekly plan is locked', async () => {
+    campaignService.getWeeklyPlanById.mockResolvedValue({
+      id: 'plan-1',
+      allocations: [{ id: 'allocation-1', task_id: 'task-1' }]
+    });
+    marketingTaskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'staff-1',
+      assignee_id: 'staff-1',
+      collaborator_ids: []
+    });
     campaignService.updateWeeklyAllocation.mockResolvedValue({
       reason: 'plan_locked',
       plan: { id: 'plan-1', status: 'committed' }
@@ -152,5 +183,29 @@ describe('Campaign Controller', () => {
     await campaignController.updateAllocation(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(409);
+  });
+
+  it('prevents a support member from changing the weekly schedule', async () => {
+    campaignService.getWeeklyPlanById.mockResolvedValue({
+      id: 'plan-1',
+      allocations: [{ id: 'allocation-1', task_id: 'task-1' }]
+    });
+    marketingTaskService.getMarketingTaskById.mockResolvedValue({
+      id: 'task-1',
+      created_by: 'owner-1',
+      assignee_id: 'owner-1',
+      collaborator_ids: ['staff-1']
+    });
+    const req = {
+      user: staffUser,
+      params: { planId: 'plan-1', allocationId: 'allocation-1' },
+      body: { planned_date: '2026-06-10' }
+    };
+    const res = createResponse();
+
+    await campaignController.updateAllocation(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(campaignService.updateWeeklyAllocation).not.toHaveBeenCalled();
   });
 });

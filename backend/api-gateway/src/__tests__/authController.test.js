@@ -7,7 +7,8 @@ const createResponse = () => {
 
 jest.mock('../modules/auth/auth.service', () => ({
   registerUser: jest.fn(),
-  loginUser: jest.fn()
+  loginUser: jest.fn(),
+  listEmployees: jest.fn()
 }));
 
 const authService = require('../modules/auth/auth.service');
@@ -113,6 +114,38 @@ describe('Auth Controller', () => {
         department: 'marketing',
         position: 'Marketing Lead'
       }
+    });
+  });
+
+  it('returns a minimal marketing directory to staff', async () => {
+    authService.listEmployees.mockResolvedValue([{
+      id: 'staff-1',
+      email: 'staff@abk.vn',
+      role: 'marketing_staff',
+      department: 'marketing',
+      position: 'Content',
+      last_sign_in_at: 'private-value'
+    }]);
+    const req = {
+      user: {
+        id: 'staff-2',
+        app_metadata: { role: 'marketing_staff', department: 'marketing' }
+      }
+    };
+    const res = createResponse();
+
+    await authController.listDirectory(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      total: 1,
+      employees: [{
+        id: 'staff-1',
+        email: 'staff@abk.vn',
+        role: 'marketing_staff',
+        department: 'marketing',
+        position: 'Content'
+      }]
     });
   });
 });

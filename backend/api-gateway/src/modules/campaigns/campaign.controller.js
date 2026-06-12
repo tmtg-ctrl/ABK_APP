@@ -1,4 +1,5 @@
 const campaignService = require('./campaign.service');
+const { getMarketingTaskById } = require('../marketing/marketing-task.service');
 
 const MANAGER_ROLES = new Set(['admin', 'marketing_manager', 'department_manager']);
 const PROJECT_STATUSES = new Set(['planning', 'active', 'paused', 'completed', 'archived']);
@@ -8,6 +9,17 @@ const getRole = (req) => req.user?.app_metadata?.role || 'staff';
 const getDepartment = (req) => req.user?.app_metadata?.department || null;
 const isMarketingUser = (req) => getRole(req) === 'admin' || getDepartment(req) === 'marketing';
 const canManage = (req) => MANAGER_ROLES.has(getRole(req));
+const canParticipateInTask = (req, task) => (
+  canManage(req)
+  || task.created_by === req.user.id
+  || task.assignee_id === req.user.id
+  || task.collaborator_ids.includes(req.user.id)
+);
+const canCoordinateTask = (req, task) => (
+  canManage(req)
+  || task.created_by === req.user.id
+  || task.assignee_id === req.user.id
+);
 
 const requireMarketing = (req, res) => {
   if (!isMarketingUser(req)) {
@@ -188,13 +200,20 @@ exports.addAllocation = async (req, res, next) => {
   try {
     if (!requireMarketing(req, res)) return;
     if (!req.body.task_id) return res.status(400).json({ error: 'task_id is required' });
+    const task = await getMarketingTaskById(req.body.task_id);
+    if (!task) return res.status(404).json({ error: 'Marketing task not found' });
+    if (!canParticipateInTask(req, task)) {
+      return res.status(403).json({ error: 'You are not a participant of this task' });
+    }
     const result = await campaignService.addWeeklyAllocation(req.params.planId, {
       taskId: req.body.task_id,
       plannedDate: req.body.planned_date,
       estimatedHours: req.body.estimated_hours,
       commitmentStatus: req.body.commitment_status,
       carryoverReason: req.body.carryover_reason,
-      addedDuringWeek: req.body.added_during_week
+      addedDuringWeek: req.body.added_during_week,
+      addedById: req.user.id,
+      addedByName: req.user.email || ''
     });
     if (result.reason === 'plan_not_found') return res.status(404).json({ error: 'Weekly plan not found' });
     if (result.reason === 'task_not_found') return res.status(404).json({ error: 'Marketing task not found' });
@@ -213,6 +232,15 @@ exports.addAllocation = async (req, res, next) => {
 exports.updateAllocation = async (req, res, next) => {
   try {
     if (!requireMarketing(req, res)) return;
+    const plan = await campaignService.getWeeklyPlanById(req.params.planId);
+    if (!plan) return res.status(404).json({ error: 'Weekly plan not found' });
+    const allocation = plan.allocations.find((item) => item.id === req.params.allocationId);
+    if (!allocation) return res.status(404).json({ error: 'Allocation not found' });
+    const task = await getMarketingTaskById(allocation.task_id);
+    if (!task) return res.status(404).json({ error: 'Marketing task not found' });
+    if (!canCoordinateTask(req, task)) {
+      return res.status(403).json({ error: 'Only the task owner can change its weekly schedule' });
+    }
     const result = await campaignService.updateWeeklyAllocation(
       req.params.planId,
       req.params.allocationId,
@@ -238,6 +266,15 @@ exports.updateAllocation = async (req, res, next) => {
 exports.removeAllocation = async (req, res, next) => {
   try {
     if (!requireMarketing(req, res)) return;
+    const plan = await campaignService.getWeeklyPlanById(req.params.planId);
+    if (!plan) return res.status(404).json({ error: 'Weekly plan not found' });
+    const allocation = plan.allocations.find((item) => item.id === req.params.allocationId);
+    if (!allocation) return res.status(404).json({ error: 'Allocation not found' });
+    const task = await getMarketingTaskById(allocation.task_id);
+    if (!task) return res.status(404).json({ error: 'Marketing task not found' });
+    if (!canCoordinateTask(req, task)) {
+      return res.status(403).json({ error: 'Only the task owner can remove it from the weekly plan' });
+    }
     const result = await campaignService.removeWeeklyAllocation(
       req.params.planId,
       req.params.allocationId

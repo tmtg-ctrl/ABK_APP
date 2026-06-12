@@ -22,8 +22,14 @@ const normalizeMarketingTask = (task) => {
     deliverable: task.data?.deliverable || '',
     assignee_id: task.data?.assignee_id || null,
     owner_name: task.data?.owner_name || '',
-    collaborator_ids: task.data?.collaborator_ids || [],
+    collaborator_ids: Array.isArray(task.data?.collaborator_ids) ? task.data.collaborator_ids : [],
     approver_id: task.data?.approver_id || null,
+    creator_name: task.data?.creator_name || '',
+    assigned_by_id: task.data?.assigned_by_id || task.user_id,
+    assigned_by_name: task.data?.assigned_by_name || '',
+    updated_by_id: task.data?.updated_by_id || null,
+    updated_by_name: task.data?.updated_by_name || '',
+    activity: Array.isArray(task.data?.activity) ? task.data.activity : [],
     start_date: task.data?.start_date || null,
     deadline: task.data?.deadline || null,
     progress: Number(task.data?.progress || 0),
@@ -53,6 +59,9 @@ const createMarketingTask = async ({
   ownerName,
   collaboratorIds,
   approverId,
+  creatorName,
+  assignedById,
+  assignedByName,
   startDate,
   deadline,
   progress,
@@ -80,6 +89,18 @@ const createMarketingTask = async ({
     owner_name: ownerName || '',
     collaborator_ids: collaboratorIds || [],
     approver_id: approverId || null,
+    creator_name: creatorName || '',
+    assigned_by_id: assignedById || userId,
+    assigned_by_name: assignedByName || creatorName || '',
+    updated_by_id: userId,
+    updated_by_name: creatorName || '',
+    activity: [{
+      id: crypto.randomUUID(),
+      action: 'created',
+      actor_id: userId,
+      actor_name: creatorName || '',
+      created_at: now
+    }],
     start_date: startDate || null,
     deadline: deadline || null,
     progress: Number(progress || 0),
@@ -149,6 +170,46 @@ const updateMarketingTask = async (taskId, updates) => {
     return null;
   }
 
+  const now = new Date().toISOString();
+  const changedFields = [
+    ['title', updates.title, existing.title],
+    ['description', updates.description, existing.description],
+    ['priority', updates.priority, existing.priority],
+    ['team', updates.team, existing.team],
+    ['work_type', updates.workType, existing.work_type],
+    ['work_context', updates.workContext, existing.work_context],
+    ['item_type', updates.itemType, existing.item_type],
+    ['project_id', updates.projectId, existing.project_id],
+    ['phase_id', updates.phaseId, existing.phase_id],
+    ['deliverable', updates.deliverable, existing.deliverable],
+    ['status', updates.status, existing.status],
+    ['assignee_id', updates.assigneeId, existing.assignee_id],
+    ['owner_name', updates.ownerName, existing.owner_name],
+    ['collaborator_ids', updates.collaboratorIds, existing.collaborator_ids],
+    ['approver_id', updates.approverId, existing.approver_id],
+    ['start_date', updates.startDate, existing.start_date],
+    ['deadline', updates.deadline, existing.deadline],
+    ['progress', updates.progress, existing.progress],
+    ['dependency_id', updates.dependencyId, existing.dependency_id],
+    ['subtasks', updates.subtasks, existing.subtasks],
+    ['checklist', updates.checklist, existing.checklist]
+  ]
+    .filter(([, value, current]) => value !== undefined && JSON.stringify(value) !== JSON.stringify(current))
+    .map(([field]) => field);
+  const nextActivity = changedFields.length
+    ? [
+        ...existing.activity,
+        {
+          id: crypto.randomUUID(),
+          action: 'updated',
+          fields: changedFields,
+          actor_id: updates.actorId || null,
+          actor_name: updates.actorName || '',
+          created_at: now
+        }
+      ].slice(-50)
+    : existing.activity;
+
   const nextData = {
     title: updates.title ?? existing.title,
     description: updates.description ?? existing.description,
@@ -160,10 +221,16 @@ const updateMarketingTask = async (taskId, updates) => {
     project_id: updates.projectId === undefined ? existing.project_id : updates.projectId || null,
     phase_id: updates.phaseId === undefined ? existing.phase_id : updates.phaseId || null,
     deliverable: updates.deliverable ?? existing.deliverable,
-    assignee_id: updates.assigneeId ?? existing.assignee_id,
+    assignee_id: updates.assigneeId === undefined ? existing.assignee_id : updates.assigneeId || null,
     owner_name: updates.ownerName ?? existing.owner_name,
     collaborator_ids: updates.collaboratorIds ?? existing.collaborator_ids,
     approver_id: updates.approverId === undefined ? existing.approver_id : updates.approverId || null,
+    creator_name: existing.creator_name,
+    assigned_by_id: updates.assignedById ?? existing.assigned_by_id,
+    assigned_by_name: updates.assignedByName ?? existing.assigned_by_name,
+    updated_by_id: updates.actorId || existing.updated_by_id,
+    updated_by_name: updates.actorName || existing.updated_by_name,
+    activity: nextActivity,
     start_date: updates.startDate === undefined ? existing.start_date : updates.startDate || null,
     deadline: updates.deadline ?? existing.deadline,
     progress: updates.progress ?? existing.progress,
@@ -172,7 +239,7 @@ const updateMarketingTask = async (taskId, updates) => {
     checklist: updates.checklist ?? existing.checklist,
     department: 'marketing',
     created_at: existing.created_at,
-    updated_at: new Date().toISOString()
+    updated_at: now
   };
 
   const updatePayload = {

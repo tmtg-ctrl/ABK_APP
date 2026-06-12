@@ -5,15 +5,19 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  ClipboardCheck,
   FolderKanban,
   GripVertical,
+  History,
   ListPlus,
   Plus,
   RefreshCw,
   Trash2,
   UserRound,
+  Users,
   Wrench
 } from 'lucide-react';
+import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect';
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
 import { apiRequest } from '../../shared/services/api';
@@ -54,6 +58,19 @@ const addDays = (date, count) => {
   return `${year}-${month}-${day}`;
 };
 
+const buildDirectory = (employees, currentUser) => {
+  const byId = new Map(employees.map((employee) => [employee.id, employee]));
+  if (!byId.has(currentUser.id)) {
+    byId.set(currentUser.id, {
+      id: currentUser.id,
+      email: currentUser.email,
+      role: currentUser.role,
+      position: currentUser.position
+    });
+  }
+  return [...byId.values()];
+};
+
 function WeeklyMetric({ icon: Icon, label, value, detail, tone = '' }) {
   return (
     <section className={`weekly-metric ${tone}`}>
@@ -73,7 +90,12 @@ function AddTaskForm({ plan, tasks, projects, currentUser, isManager, token, onS
     !task.milestone
     && !existingTaskIds.has(task.id)
     && task.status !== 'done'
-    && (isManager || task.assignee_id === currentUser.id || task.created_by === currentUser.id)
+    && (
+      isManager
+      || task.assignee_id === currentUser.id
+      || task.created_by === currentUser.id
+      || task.collaborator_ids.includes(currentUser.id)
+    )
   ));
   const [form, setForm] = useState({
     task_id: availableTasks[0]?.id || '',
@@ -156,6 +178,7 @@ function AddTaskForm({ plan, tasks, projects, currentUser, isManager, token, onS
 }
 
 function OperationTaskForm({ plan, employees, currentUser, isManager, token, onSaved }) {
+  const directory = buildDirectory(employees, currentUser);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -163,6 +186,7 @@ function OperationTaskForm({ plan, employees, currentUser, isManager, token, onS
     priority: 'medium',
     assignee_id: currentUser.id,
     owner_name: currentUser.email,
+    collaborator_ids: [],
     planned_date: plan.week_start,
     estimated_hours: 4
   });
@@ -184,6 +208,7 @@ function OperationTaskForm({ plan, employees, currentUser, isManager, token, onS
           priority: form.priority,
           assignee_id: form.assignee_id || currentUser.id,
           owner_name: form.owner_name,
+          collaborator_ids: form.collaborator_ids,
           work_context: 'operation',
           start_date: form.planned_date,
           deadline: plan.week_end,
@@ -244,21 +269,34 @@ function OperationTaskForm({ plan, employees, currentUser, isManager, token, onS
           <select
             value={form.assignee_id}
             onChange={(event) => {
-              const employee = employees.find((item) => item.id === event.target.value);
+              const employee = directory.find((item) => item.id === event.target.value);
               setForm({
                 ...form,
                 assignee_id: event.target.value,
-                owner_name: employee?.email || currentUser.email
+                owner_name: employee?.email || currentUser.email,
+                collaborator_ids: form.collaborator_ids.filter((id) => id !== event.target.value)
               });
             }}
           >
             <option value={currentUser.id}>{currentUser.email}</option>
-            {employees.filter((employee) => employee.id !== currentUser.id).map((employee) => (
+            {directory.filter((employee) => employee.id !== currentUser.id).map((employee) => (
               <option value={employee.id} key={employee.id}>{employee.email}</option>
             ))}
           </select>
         </label>
       )}
+      {!isManager && (
+        <div className="read-only-line">
+          <span>Nguoi phu trach chinh</span>
+          <strong>{currentUser.email}</strong>
+        </div>
+      )}
+      <EmployeeMultiSelect
+        employees={directory}
+        selectedIds={form.collaborator_ids}
+        excludedIds={[form.assignee_id]}
+        onChange={(collaboratorIds) => setForm({ ...form, collaborator_ids: collaboratorIds })}
+      />
       <div className="two-column">
         <label>
           Ngay thuc hien
@@ -291,6 +329,273 @@ function OperationTaskForm({ plan, employees, currentUser, isManager, token, onS
   );
 }
 
+function WeeklyTaskDetails({
+  task,
+  projects,
+  employees,
+  currentUser,
+  isManager,
+  token,
+  onSaved
+}) {
+  const directory = buildDirectory(employees, currentUser);
+  const employeeById = Object.fromEntries(directory.map((employee) => [employee.id, employee]));
+  const canCoordinate = isManager || task.created_by === currentUser.id || task.assignee_id === currentUser.id;
+  const canParticipate = canCoordinate || task.collaborator_ids.includes(currentUser.id);
+  const [form, setForm] = useState({
+    title: task.title,
+    description: task.description || '',
+    deliverable: task.deliverable || '',
+    status: task.status,
+    priority: task.priority,
+    deadline: task.deadline || '',
+    assignee_id: task.assignee_id || '',
+    collaborator_ids: task.collaborator_ids || [],
+    checklist: task.checklist || []
+  });
+  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const project = projects.find((item) => item.id === task.projectId);
+
+  const addChecklistItem = () => {
+    const text = newChecklistItem.trim();
+    if (!text) return;
+    setForm({
+      ...form,
+      checklist: [
+        ...form.checklist,
+        { id: crypto.randomUUID(), text, done: false }
+      ]
+    });
+    setNewChecklistItem('');
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await apiRequest(`/api/marketing/tasks/${task.id}`, {
+        method: 'PUT',
+        token,
+        body: canCoordinate ? {
+          title: form.title,
+          description: form.description,
+          deliverable: form.deliverable,
+          status: form.status,
+          priority: form.priority,
+          deadline: form.deadline || null,
+          assignee_id: isManager ? form.assignee_id || null : undefined,
+          owner_name: isManager ? employeeById[form.assignee_id]?.email || '' : undefined,
+          collaborator_ids: form.collaborator_ids,
+          checklist: form.checklist
+        } : {
+          status: form.status,
+          checklist: form.checklist
+        }
+      });
+      await onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="weekly-task-detail">
+      <div className="weekly-task-detail-header">
+        <span className={`weekly-source ${task.projectId ? 'campaign' : 'operation'}`}>
+          {task.projectId ? 'Campaign' : 'Van hanh'}
+        </span>
+        <span>{project?.name || 'Cong viec van hanh'}</span>
+      </div>
+
+      <label>
+        Ten cong viec
+        <input
+          value={form.title}
+          disabled={!canCoordinate}
+          onChange={(event) => setForm({ ...form, title: event.target.value })}
+        />
+      </label>
+      <label>
+        Mo ta
+        <textarea
+          rows="3"
+          value={form.description}
+          disabled={!canCoordinate}
+          onChange={(event) => setForm({ ...form, description: event.target.value })}
+        />
+      </label>
+      <label>
+        Ket qua can ban giao
+        <textarea
+          rows="2"
+          value={form.deliverable}
+          disabled={!canCoordinate}
+          onChange={(event) => setForm({ ...form, deliverable: event.target.value })}
+        />
+      </label>
+
+      <div className="two-column">
+        <label>
+          Trang thai
+          <select
+            value={form.status}
+            disabled={!canParticipate}
+            onChange={(event) => setForm({ ...form, status: event.target.value })}
+          >
+            {Object.entries(taskStatusLabels).map(([value, label]) => (
+              <option value={value} key={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Uu tien
+          <select
+            value={form.priority}
+            disabled={!canCoordinate}
+            onChange={(event) => setForm({ ...form, priority: event.target.value })}
+          >
+            <option value="low">Thap</option>
+            <option value="medium">Trung binh</option>
+            <option value="high">Cao</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="weekly-responsibility-grid">
+        <div className="read-only-line">
+          <span>Nguoi tao</span>
+          <strong>{task.creator_name || employeeById[task.created_by]?.email || 'Khong ro'}</strong>
+        </div>
+        <div className="read-only-line">
+          <span>Nguoi giao gan nhat</span>
+          <strong>{task.assigned_by_name || employeeById[task.assigned_by_id]?.email || 'Khong ro'}</strong>
+        </div>
+      </div>
+
+      {isManager ? (
+        <label>
+          Nguoi phu trach chinh
+          <select
+            value={form.assignee_id}
+            onChange={(event) => setForm({
+              ...form,
+              assignee_id: event.target.value,
+              collaborator_ids: form.collaborator_ids.filter((id) => id !== event.target.value)
+            })}
+          >
+            <option value="">
+              {task.owner_name ? `Chua gan tai khoan - ${task.owner_name}` : 'Chua giao'}
+            </option>
+            {directory.map((employee) => (
+              <option value={employee.id} key={employee.id}>{employee.email}</option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <div className="read-only-line">
+          <span>Nguoi phu trach chinh</span>
+          <strong>{employeeById[task.assignee_id]?.email || task.owner || 'Chua giao'}</strong>
+        </div>
+      )}
+
+      {canCoordinate ? (
+        <EmployeeMultiSelect
+          employees={directory}
+          selectedIds={form.collaborator_ids}
+          excludedIds={[form.assignee_id]}
+          onChange={(collaboratorIds) => setForm({ ...form, collaborator_ids: collaboratorIds })}
+        />
+      ) : (
+        <div className="weekly-support-summary">
+          <span>Nguoi ho tro</span>
+          <strong>
+            {form.collaborator_ids.map((id) => employeeById[id]?.email).filter(Boolean).join(', ') || 'Khong co'}
+          </strong>
+        </div>
+      )}
+
+      <section className="weekly-checklist">
+        <div className="section-heading">
+          <h4><ClipboardCheck size={16} /> Checklist</h4>
+          <span>{form.checklist.filter((item) => item.done).length}/{form.checklist.length}</span>
+        </div>
+        <div>
+          {form.checklist.map((item) => (
+            <label key={item.id}>
+              <input
+                type="checkbox"
+                checked={Boolean(item.done)}
+                disabled={!canParticipate}
+                onChange={() => setForm({
+                  ...form,
+                  checklist: form.checklist.map((entry) => (
+                    entry.id === item.id ? { ...entry, done: !entry.done } : entry
+                  ))
+                })}
+              />
+              <span>{item.text}</span>
+              {canCoordinate && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setForm({
+                    ...form,
+                    checklist: form.checklist.filter((entry) => entry.id !== item.id)
+                  })}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </label>
+          ))}
+        </div>
+        {canCoordinate && (
+          <div className="weekly-checklist-add">
+            <input
+              value={newChecklistItem}
+              onChange={(event) => setNewChecklistItem(event.target.value)}
+              placeholder="Them muc can kiem tra"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addChecklistItem();
+                }
+              }}
+            />
+            <button type="button" className="secondary-action" onClick={addChecklistItem}>
+              <Plus size={15} />
+              Them
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="weekly-activity">
+        <h4><History size={16} /> Lich su gan day</h4>
+        {(task.activity || []).slice().reverse().slice(0, 6).map((entry) => (
+          <div key={entry.id}>
+            <span>{entry.actor_name || employeeById[entry.actor_id]?.email || 'He thong'}</span>
+            <strong>{entry.action === 'created' ? 'da tao cong viec' : `da cap nhat ${entry.fields?.join(', ') || 'cong viec'}`}</strong>
+            <small>{entry.created_at ? new Date(entry.created_at).toLocaleString('vi-VN') : ''}</small>
+          </div>
+        ))}
+      </section>
+
+      {error && <InlineError message={error} />}
+      {canParticipate && (
+        <button className="primary-action" onClick={save} disabled={saving}>
+          {saving ? <RefreshCw className="spin" size={17} /> : <CheckCircle2 size={17} />}
+          Luu cong viec
+        </button>
+      )}
+    </div>
+  );
+}
+
 function WeeklyTaskCard({
   allocation,
   task,
@@ -300,9 +605,14 @@ function WeeklyTaskCard({
   onMove,
   onHoursChange,
   onStatusChange,
-  onRemove
+  onRemove,
+  onOpen
 }) {
   const [hours, setHours] = useState(allocation.estimated_hours || 0);
+  const isSelfCreated =
+    task.created_by &&
+    task.assignee_id &&
+    task.created_by === task.assignee_id;
 
   useEffect(() => {
     setHours(allocation.estimated_hours || 0);
@@ -319,14 +629,25 @@ function WeeklyTaskCard({
         <span className={`weekly-source ${task.projectId ? 'campaign' : 'operation'}`}>
           {task.projectId ? 'Campaign' : 'Van hanh'}
         </span>
+        <span className={`weekly-origin ${isSelfCreated ? 'self' : 'assigned'}`}>
+          {isSelfCreated ? 'Tu tao' : 'Duoc giao'}
+        </span>
         <span className={`campaign-priority-dot ${task.priority}`} />
       </div>
-      <strong>{task.title}</strong>
+      <button className="weekly-task-title" onClick={() => onOpen(task)}>
+        {task.title}
+      </button>
       <small>{project?.name || task.phase}</small>
       <div className="weekly-task-owner">
         <UserRound size={13} />
         <span>{task.owner}</span>
       </div>
+      {!!task.collaborator_ids.length && (
+        <div className="weekly-task-support">
+          <Users size={13} />
+          <span>{task.collaborator_ids.length} nguoi ho tro</span>
+        </div>
+      )}
       <div className="weekly-task-controls">
         <select
           value={task.status}
@@ -388,6 +709,7 @@ export function WeeklyPlanningModule({
   const [scope, setScope] = useState('all');
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCreateOperation, setShowCreateOperation] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
   const sortedPlans = useMemo(
@@ -404,6 +726,8 @@ export function WeeklyPlanningModule({
   }, [selectedPlanId, sortedPlans]);
 
   const selectedPlan = sortedPlans.find((plan) => plan.id === selectedPlanId) || sortedPlans[0];
+  const directory = buildDirectory(employees, currentUser);
+  const employeeById = Object.fromEntries(directory.map((employee) => [employee.id, employee]));
   const projectById = Object.fromEntries(projects.map((project) => [project.id, project]));
   const taskById = Object.fromEntries(tasks.map((task) => [task.id, task]));
   const allocations = (selectedPlan?.allocations || [])
@@ -414,7 +738,11 @@ export function WeeklyPlanningModule({
     }))
     .filter((allocation) => allocation.task)
     .filter(({ task }) => {
-      if (scope === 'mine') return task.assignee_id === currentUser.id || task.created_by === currentUser.id;
+      if (scope === 'mine') {
+        return task.assignee_id === currentUser.id
+          || task.created_by === currentUser.id
+          || task.collaborator_ids.includes(currentUser.id);
+      }
       if (scope === 'campaign') return Boolean(task.projectId);
       if (scope === 'operation') return !task.projectId;
       return true;
@@ -611,19 +939,25 @@ export function WeeklyPlanningModule({
                   const ownsTask = isManager
                     || task.assignee_id === currentUser.id
                     || task.created_by === currentUser.id;
+                  const participatesInTask = ownsTask || task.collaborator_ids.includes(currentUser.id);
+                  const displayTask = {
+                    ...task,
+                    owner: employeeById[task.assignee_id]?.email || task.owner
+                  };
                   return (
                     <WeeklyTaskCard
                       allocation={allocation}
-                      task={task}
+                      task={displayTask}
                       project={projectById[task.projectId]}
                       canSchedule={canSchedulePlan && ownsTask}
-                      canUpdateTask={canExecutePlan && ownsTask}
+                      canUpdateTask={canExecutePlan && participatesInTask}
                       onMove={moveAllocation}
                       onHoursChange={(allocationId, hours) => updateAllocation(allocationId, {
                         estimated_hours: Number(hours)
                       })}
                       onStatusChange={updateTaskStatus}
                       onRemove={removeAllocation}
+                      onOpen={() => setSelectedTaskId(task.id)}
                       key={allocation.id}
                     />
                   );
@@ -664,6 +998,27 @@ export function WeeklyPlanningModule({
               await loadWorkspace();
               onWorkspaceChanged?.();
               setShowCreateOperation(false);
+            }}
+          />
+        </Modal>
+      )}
+
+      {selectedTaskId && taskById[selectedTaskId] && (
+        <Modal title="Chi tiet cong viec" onClose={() => setSelectedTaskId(null)} className="weekly-task-modal">
+          <WeeklyTaskDetails
+            task={{
+              ...taskById[selectedTaskId],
+              owner: employeeById[taskById[selectedTaskId].assignee_id]?.email || taskById[selectedTaskId].owner
+            }}
+            projects={projects}
+            employees={directory}
+            currentUser={currentUser}
+            isManager={isManager}
+            token={token}
+            onSaved={async () => {
+              await loadWorkspace();
+              onWorkspaceChanged?.();
+              setSelectedTaskId(null);
             }}
           />
         </Modal>

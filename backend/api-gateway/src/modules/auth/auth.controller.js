@@ -80,6 +80,34 @@ exports.listEmployees = async (req, res, next) => {
   }
 };
 
+exports.listDirectory = async (req, res, next) => {
+  try {
+    const role = req.user?.app_metadata?.role;
+    const department = req.user?.app_metadata?.department;
+    const isMarketingUser = role === 'admin' || department === 'marketing';
+
+    if (!isMarketingUser) {
+      return res.status(403).json({ error: 'Marketing department access required' });
+    }
+
+    const employees = await listEmployees({ department: 'marketing' });
+    const directory = employees.map((employee) => ({
+      id: employee.id,
+      email: employee.email,
+      role: employee.role,
+      department: employee.department,
+      position: employee.position
+    }));
+
+    res.status(200).json({
+      total: directory.length,
+      employees: directory
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.sendOtp = async (req, res, next) => {
   try {
     const { email, phone } = req.body;

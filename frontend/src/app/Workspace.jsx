@@ -65,9 +65,7 @@ export function Workspace({ session, onLogout }) {
     try {
       const [taskData, employeeData] = await Promise.all([
         apiRequest('/api/marketing/tasks', { token: session.token }),
-        isManager
-          ? apiRequest('/controller/user/employees?department=marketing', { token: session.token })
-          : Promise.resolve({ employees: [] })
+        apiRequest('/controller/user/directory', { token: session.token })
       ]);
 
       setTasks(taskData.tasks || []);

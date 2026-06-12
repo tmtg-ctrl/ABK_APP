@@ -6,6 +6,7 @@ const { authenticate, requireAdmin } = require('../../shared/middleware/auth.mid
 router.post('/create-user', authenticate, requireAdmin, authController.register);
 router.post('/register', authenticate, requireAdmin, authController.register);
 router.get('/employees', authenticate, authController.listEmployees);
+router.get('/directory', authenticate, authController.listDirectory);
 router.post('/login', authController.login);
 router.post('/login-user', authController.login);
 router.post('/send-otp', authController.sendOtp);

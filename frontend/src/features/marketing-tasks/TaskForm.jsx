@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { InlineError } from '../../shared/components/InlineError';
+import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect';
 import {
   MARKETING_TEAMS,
   PRIORITY_OPTIONS,
@@ -11,7 +12,15 @@ import {
 } from '../../shared/constants/marketing';
 import { apiRequest } from '../../shared/services/api';
 
-export function TaskForm({ employees, isManager, token, onSaved }) {
+export function TaskForm({ employees, isManager, token, currentUser, onSaved }) {
+  const directory = employees.some((employee) => employee.id === currentUser.id)
+    ? employees
+    : [...employees, {
+        id: currentUser.id,
+        email: currentUser.email,
+        role: currentUser.role,
+        position: currentUser.position
+      }];
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -19,7 +28,8 @@ export function TaskForm({ employees, isManager, token, onSaved }) {
     team: 'media',
     work_type: 'photo_shoot',
     deadline: '',
-    assignee_id: '',
+    assignee_id: currentUser.id,
+    collaborator_ids: [],
     status: 'todo'
   });
   const [error, setError] = useState('');
@@ -36,7 +46,9 @@ export function TaskForm({ employees, isManager, token, onSaved }) {
         token,
         body: {
           ...form,
-          assignee_id: form.assignee_id || undefined
+          assignee_id: form.assignee_id || currentUser.id,
+          owner_name: directory.find((employee) => employee.id === form.assignee_id)?.email || currentUser.email,
+          collaborator_ids: form.collaborator_ids
         }
       });
       onSaved();
@@ -102,14 +114,36 @@ export function TaskForm({ employees, isManager, token, onSaved }) {
       {isManager && (
         <label>
           Assignee
-          <select value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
-            <option value="">Unassigned</option>
-            {employees.map((employee) => (
+          <select
+            value={form.assignee_id}
+            onChange={(event) => setForm({
+              ...form,
+              assignee_id: event.target.value,
+              collaborator_ids: form.collaborator_ids.filter((id) => id !== event.target.value)
+            })}
+          >
+            {directory.map((employee) => (
               <option value={employee.id} key={employee.id}>{employee.email}</option>
             ))}
           </select>
         </label>
       )}
+      {!isManager && (
+        <div className="read-only-line">
+          <span>Nguoi phu trach chinh</span>
+          <strong>{currentUser.email}</strong>
+        </div>
+      )}
+      <div className="read-only-line">
+        <span>Nguoi tao / nguoi giao</span>
+        <strong>{currentUser.email}</strong>
+      </div>
+      <EmployeeMultiSelect
+        employees={directory}
+        selectedIds={form.collaborator_ids}
+        excludedIds={[form.assignee_id]}
+        onChange={(collaboratorIds) => setForm({ ...form, collaborator_ids: collaboratorIds })}
+      />
       {error && <InlineError message={error} />}
       <button className="primary-action" disabled={saving}>
         {saving ? <RefreshCw className="spin" size={18} /> : <Plus size={18} />}
