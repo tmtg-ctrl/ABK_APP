@@ -55,7 +55,7 @@ function ProjectForm({ token, onSaved, onClose }) {
   };
 
   return (
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-form" onSubmit={submit}>
       <div className="two-column">
         <label>
           Ma campaign
@@ -132,7 +132,7 @@ function PhaseForm({ project, phaseCount, token, onSaved, onClose }) {
   };
 
   return (
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-form" onSubmit={submit}>
       <div className="read-only-line">
         <span>Campaign</span>
         <strong>{project.name}</strong>
@@ -220,7 +220,7 @@ function CampaignTaskForm({
   };
 
   return (
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-form" onSubmit={submit}>
       <div className="read-only-line">
         <span>Campaign</span>
         <strong>{project.name}</strong>
@@ -444,13 +444,25 @@ export function CampaignModule({
       )}
 
       {showCreate && (
-        <Modal title="Tao campaign moi" onClose={() => setShowCreate(false)}>
+        <Modal
+          title="Tao campaign moi"
+          description="Khai bao muc tieu, nguoi phu trach va moc thoi gian cua chien dich."
+          className="create-modal"
+          size="medium"
+          onClose={() => setShowCreate(false)}
+        >
           <ProjectForm token={token} onSaved={loadWorkspace} onClose={() => setShowCreate(false)} />
         </Modal>
       )}
 
       {createContext?.type === 'phase' && (
-        <Modal title="Them giai doan campaign" onClose={() => setCreateContext(null)}>
+        <Modal
+          title="Them giai doan campaign"
+          description="Chia campaign thanh cac giai doan co dau ra va thoi han ro rang."
+          className="create-modal"
+          size="medium"
+          onClose={() => setCreateContext(null)}
+        >
           <PhaseForm
             project={workspace.projects.find((project) => project.id === createContext.projectId)}
             phaseCount={workspace.phases.filter((phase) => phase.project_id === createContext.projectId).length}
@@ -465,7 +477,13 @@ export function CampaignModule({
       )}
 
       {createContext?.type === 'task' && (
-        <Modal title="Them Task vao campaign" onClose={() => setCreateContext(null)}>
+        <Modal
+          title="Them Task vao campaign"
+          description="Tao cong viec, giao nguoi phu trach va gan vao giai doan phu hop."
+          className="create-modal"
+          size="large"
+          onClose={() => setCreateContext(null)}
+        >
           <CampaignTaskForm
             project={workspace.projects.find((project) => project.id === createContext.projectId)}
             phases={workspace.phases}

@@ -20,6 +20,7 @@ import {
   Wrench
 } from 'lucide-react';
 import { EmployeeMultiSelect } from '../../shared/components/EmployeeMultiSelect';
+import { FilterMenu } from '../../shared/components/FilterMenu';
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
 import { apiRequest } from '../../shared/services/api';
@@ -142,7 +143,7 @@ function AddTaskForm({ plan, tasks, projects, currentUser, isManager, token, onS
   }
 
   return (
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-form" onSubmit={submit}>
       <label>
         Chon Task co san
         <select value={form.task_id} onChange={(event) => setForm({ ...form, task_id: event.target.value })}>
@@ -242,7 +243,7 @@ function OperationTaskForm({ plan, employees, currentUser, isManager, token, onS
   };
 
   return (
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-form" onSubmit={submit}>
       <label>
         Ten cong viec van hanh
         <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
@@ -791,6 +792,8 @@ export function WeeklyPlanningModule({
   const [scope, setScope] = useState('all');
   const [displayMode, setDisplayMode] = useState('list');
   const [taskFilter, setTaskFilter] = useState('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState({ scope: 'all', taskFilter: 'all' });
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCreateOperation, setShowCreateOperation] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -842,6 +845,7 @@ export function WeeklyPlanningModule({
   const canExecutePlan = selectedPlan?.status !== 'closed';
   const { weekStart: currentWeekStart } = getWeekRange();
   const hasCurrentWeek = sortedPlans.some((plan) => plan.week_start === currentWeekStart);
+  const activeFilterCount = [scope !== 'all', taskFilter !== 'all'].filter(Boolean).length;
 
   const runAction = async (action) => {
     setSaving(true);
@@ -978,18 +982,79 @@ export function WeeklyPlanningModule({
 
       <section className="panel weekly-control-bar">
         <div className="weekly-control-filters">
-          <div className="portfolio-scope-tabs">
-            <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>Toan phong</button>
-            <button className={scope === 'mine' ? 'active' : ''} onClick={() => setScope('mine')}>Cua toi</button>
-            <button className={scope === 'campaign' ? 'active' : ''} onClick={() => setScope('campaign')}>Campaign</button>
-            <button className={scope === 'operation' ? 'active' : ''} onClick={() => setScope('operation')}>Van hanh</button>
+          <div className="applied-filter-summary">
+            <span>{visibleAllocations.length} cong viec dang hien thi</span>
+            {scope !== 'all' && (
+              <b>
+                {scope === 'mine' ? 'Cua toi' : scope === 'campaign' ? 'Campaign' : 'Van hanh'}
+              </b>
+            )}
+            {taskFilter !== 'all' && <b>{TASK_BUCKET_LABELS[taskFilter]}</b>}
           </div>
-          <select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}>
-            <option value="all">Tat ca trang thai</option>
-            {['pending', 'active', 'review', 'completed'].map((bucket) => (
-              <option value={bucket} key={bucket}>{TASK_BUCKET_LABELS[bucket]}</option>
-            ))}
-          </select>
+          <FilterMenu
+            open={filterOpen}
+            title="Loc cong viec tuan"
+            activeCount={activeFilterCount}
+            onOpen={() => {
+              setDraftFilters({ scope, taskFilter });
+              setFilterOpen(true);
+            }}
+            onClose={() => setFilterOpen(false)}
+            onApply={() => {
+              setScope(draftFilters.scope);
+              setTaskFilter(draftFilters.taskFilter);
+              setFilterOpen(false);
+            }}
+            onReset={() => {
+              setDraftFilters({ scope: 'all', taskFilter: 'all' });
+              setScope('all');
+              setTaskFilter('all');
+              setFilterOpen(false);
+            }}
+          >
+            <div className="filter-field">
+              <span>Pham vi cong viec</span>
+              <div className="filter-choice-grid two">
+                {[
+                  ['all', 'Toan phong'],
+                  ['mine', 'Cua toi'],
+                  ['campaign', 'Campaign'],
+                  ['operation', 'Van hanh']
+                ].map(([value, label]) => (
+                  <button
+                    type="button"
+                    className={draftFilters.scope === value ? 'active' : ''}
+                    onClick={() => setDraftFilters({ ...draftFilters, scope: value })}
+                    key={value}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="filter-field">
+              <span>Tien do</span>
+              <div className="filter-choice-grid two">
+                <button
+                  type="button"
+                  className={draftFilters.taskFilter === 'all' ? 'active' : ''}
+                  onClick={() => setDraftFilters({ ...draftFilters, taskFilter: 'all' })}
+                >
+                  Tat ca
+                </button>
+                {['pending', 'active', 'review', 'completed'].map((bucket) => (
+                  <button
+                    type="button"
+                    className={draftFilters.taskFilter === bucket ? 'active' : ''}
+                    onClick={() => setDraftFilters({ ...draftFilters, taskFilter: bucket })}
+                    key={bucket}
+                  >
+                    {TASK_BUCKET_LABELS[bucket]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </FilterMenu>
         </div>
         <div className="weekly-control-actions">
           <div className="weekly-view-toggle">
@@ -1091,7 +1156,13 @@ export function WeeklyPlanningModule({
       )}
 
       {showAddTask && (
-        <Modal title="Dua Task co san vao tuan" onClose={() => setShowAddTask(false)}>
+        <Modal
+          title="Dua Task co san vao tuan"
+          description="Chon cong viec, ngay thuc hien va so gio du kien."
+          className="create-modal"
+          size="medium"
+          onClose={() => setShowAddTask(false)}
+        >
           <AddTaskForm
             plan={selectedPlan}
             tasks={tasks}
@@ -1108,7 +1179,13 @@ export function WeeklyPlanningModule({
       )}
 
       {showCreateOperation && (
-        <Modal title="Tao cong viec van hanh" onClose={() => setShowCreateOperation(false)}>
+        <Modal
+          title="Tao cong viec van hanh"
+          description="Tao nhanh viec noi bo va dua thang vao ke hoach tuan."
+          className="create-modal"
+          size="large"
+          onClose={() => setShowCreateOperation(false)}
+        >
           <OperationTaskForm
             plan={selectedPlan}
             employees={employees}

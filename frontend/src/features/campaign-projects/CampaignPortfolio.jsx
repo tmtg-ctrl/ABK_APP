@@ -13,6 +13,7 @@ import {
   UserRoundCheck,
   Users
 } from 'lucide-react';
+import { FilterMenu } from '../../shared/components/FilterMenu';
 import { TASK_BUCKET_LABELS, getTaskBucket, isTaskCompleted } from '../../shared/utils/tasks';
 
 const formatDate = (date) => {
@@ -89,6 +90,8 @@ export function CampaignPortfolio({
 }) {
   const [taskScope, setTaskScope] = useState('all');
   const [taskQuery, setTaskQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftScope, setDraftScope] = useState('all');
   const projectById = useMemo(
     () => Object.fromEntries(projects.map((project) => [project.id, project])),
     [projects]
@@ -168,18 +171,58 @@ export function CampaignPortfolio({
           <span className="count-pill">{campaignTasks.filter(isTaskCompleted).length}/{campaignTasks.length} da xong</span>
         </div>
         <div className="portfolio-todo-toolbar">
-          <div className="portfolio-scope-tabs">
-            <button className={taskScope === 'all' ? 'active' : ''} onClick={() => setTaskScope('all')}>Tat ca</button>
-            {['pending', 'active', 'review', 'completed'].map((bucket) => (
-              <button className={taskScope === bucket ? 'active' : ''} onClick={() => setTaskScope(bucket)} key={bucket}>
-                {TASK_BUCKET_LABELS[bucket]}
-              </button>
-            ))}
+          <div className="applied-filter-summary">
+            <span>{visibleTasks.length} cong viec</span>
+            {taskScope !== 'all' && <b>{TASK_BUCKET_LABELS[taskScope]}</b>}
           </div>
-          <label className="portfolio-search">
-            <Search size={13} />
-            <input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="Tim viec" />
-          </label>
+          <div className="portfolio-filter-actions">
+            <label className="portfolio-search">
+              <Search size={13} />
+              <input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="Tim viec" />
+            </label>
+            <FilterMenu
+              open={filterOpen}
+              title="Loc cong viec Campaign"
+              activeCount={taskScope === 'all' ? 0 : 1}
+              onOpen={() => {
+                setDraftScope(taskScope);
+                setFilterOpen(true);
+              }}
+              onClose={() => setFilterOpen(false)}
+              onApply={() => {
+                setTaskScope(draftScope);
+                setFilterOpen(false);
+              }}
+              onReset={() => {
+                setDraftScope('all');
+                setTaskScope('all');
+                setFilterOpen(false);
+              }}
+            >
+              <div className="filter-field">
+                <span>Tien do cong viec</span>
+                <div className="filter-choice-grid two">
+                  <button
+                    type="button"
+                    className={draftScope === 'all' ? 'active' : ''}
+                    onClick={() => setDraftScope('all')}
+                  >
+                    Tat ca
+                  </button>
+                  {['pending', 'active', 'review', 'completed'].map((bucket) => (
+                    <button
+                      type="button"
+                      className={draftScope === bucket ? 'active' : ''}
+                      onClick={() => setDraftScope(bucket)}
+                      key={bucket}
+                    >
+                      {TASK_BUCKET_LABELS[bucket]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </FilterMenu>
+          </div>
         </div>
         <div className="portfolio-todo-list">
           {visibleTasks.map((task) => {

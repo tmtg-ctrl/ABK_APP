@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../shared/components/Badge';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { FilterMenu } from '../../shared/components/FilterMenu';
 import { InlineError } from '../../shared/components/InlineError';
 import { Modal } from '../../shared/components/Modal';
-import { MARKETING_TEAMS, statusLabels, teamLabels, workTypeLabels } from '../../shared/constants/marketing';
+import { MARKETING_TEAMS, teamLabels, workTypeLabels } from '../../shared/constants/marketing';
 import { apiRequest } from '../../shared/services/api';
 import {
   TASK_BUCKET_LABELS,
@@ -136,6 +137,12 @@ export function TaskWorkspace({
   const [teamFilter, setTeamFilter] = useState('all');
   const [bucketFilter, setBucketFilter] = useState('all');
   const [scope, setScope] = useState(mode === 'manage' ? 'all' : 'mine');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState({
+    scope: mode === 'manage' ? 'all' : 'mine',
+    team: 'all',
+    bucket: 'all'
+  });
   const [showCreate, setShowCreate] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState('');
   const [actionError, setActionError] = useState('');
@@ -168,6 +175,11 @@ export function TaskWorkspace({
     scopedTasks.filter((task) => getTaskBucket(task.status) === bucket).length
   ]));
   const overdueCount = scopedTasks.filter((task) => getTaskDueState(task) === 'overdue').length;
+  const activeFilterCount = [
+    mode === 'manage' && scope !== 'all',
+    teamFilter !== 'all',
+    bucketFilter !== 'all'
+  ].filter(Boolean).length;
 
   const canUpdateTask = (task) => (
     isManager
@@ -196,7 +208,7 @@ export function TaskWorkspace({
     }
   };
 
-  const visibleSelectedTask = selectedTask && scopedTasks.some((task) => task.id === selectedTask.id)
+  const visibleSelectedTask = selectedTask && filteredTasks.some((task) => task.id === selectedTask.id)
     ? selectedTask
     : filteredTasks[0] || null;
 
@@ -229,47 +241,108 @@ export function TaskWorkspace({
       {actionError && <InlineError message={actionError} />}
 
       <section className="panel assigned-task-toolbar">
-        <div className="portfolio-scope-tabs">
-          {mode === 'manage' && (
-            <>
-              <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>Toan phong</button>
-              <button className={scope === 'mine' ? 'active' : ''} onClick={() => setScope('mine')}>Toi tham gia</button>
-              <button className={scope === 'created' ? 'active' : ''} onClick={() => setScope('created')}>Toi da giao</button>
-            </>
-          )}
-          {mode === 'assigned' && (
-            <span className="assigned-scope-label">Chi hien thi viec ban phu trach hoac ho tro</span>
-          )}
+        <div className="applied-filter-summary">
+          <span>{mode === 'manage' ? 'Danh sach cong viec' : 'Viec ban phu trach hoac ho tro'}</span>
+          {mode === 'manage' && scope !== 'all' && <b>{scope === 'mine' ? 'Toi tham gia' : 'Toi da giao'}</b>}
+          {teamFilter !== 'all' && <b>{teamLabels[teamFilter]}</b>}
+          {bucketFilter !== 'all' && <b>{TASK_BUCKET_LABELS[bucketFilter]}</b>}
         </div>
         <div className="assigned-task-filters">
           <label className="portfolio-search">
             <Search size={14} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tim Task" />
           </label>
-          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
-            <option value="all">Tat ca team</option>
-            {MARKETING_TEAMS.map((team) => (
-              <option value={team} key={team}>{teamLabels[team]}</option>
-            ))}
-          </select>
+          <FilterMenu
+            open={filterOpen}
+            title="Loc Task"
+            activeCount={activeFilterCount}
+            onOpen={() => {
+              setDraftFilters({ scope, team: teamFilter, bucket: bucketFilter });
+              setFilterOpen(true);
+            }}
+            onClose={() => setFilterOpen(false)}
+            onApply={() => {
+              setScope(draftFilters.scope);
+              setTeamFilter(draftFilters.team);
+              setBucketFilter(draftFilters.bucket);
+              setFilterOpen(false);
+            }}
+            onReset={() => {
+              const defaultScope = mode === 'manage' ? 'all' : 'mine';
+              setDraftFilters({ scope: defaultScope, team: 'all', bucket: 'all' });
+              setScope(defaultScope);
+              setTeamFilter('all');
+              setBucketFilter('all');
+              setFilterOpen(false);
+            }}
+          >
+            {mode === 'manage' && (
+              <div className="filter-field">
+                <span>Pham vi</span>
+                <div className="filter-choice-grid">
+                  {[
+                    ['all', 'Toan phong'],
+                    ['mine', 'Toi tham gia'],
+                    ['created', 'Toi da giao']
+                  ].map(([value, label]) => (
+                    <button
+                      type="button"
+                      className={draftFilters.scope === value ? 'active' : ''}
+                      onClick={() => setDraftFilters({ ...draftFilters, scope: value })}
+                      key={value}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <label className="filter-field">
+              <span>Team</span>
+              <select
+                value={draftFilters.team}
+                onChange={(event) => setDraftFilters({ ...draftFilters, team: event.target.value })}
+              >
+                <option value="all">Tat ca team</option>
+                {MARKETING_TEAMS.map((team) => (
+                  <option value={team} key={team}>{teamLabels[team]}</option>
+                ))}
+              </select>
+            </label>
+            <div className="filter-field">
+              <span>Tien do</span>
+              <div className="filter-choice-grid two">
+                <button
+                  type="button"
+                  className={draftFilters.bucket === 'all' ? 'active' : ''}
+                  onClick={() => setDraftFilters({ ...draftFilters, bucket: 'all' })}
+                >
+                  Tat ca
+                </button>
+                {bucketOrder.map((bucket) => (
+                  <button
+                    type="button"
+                    className={draftFilters.bucket === bucket ? 'active' : ''}
+                    onClick={() => setDraftFilters({ ...draftFilters, bucket })}
+                    key={bucket}
+                  >
+                    {TASK_BUCKET_LABELS[bucket]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </FilterMenu>
         </div>
       </section>
 
       <div className="assigned-task-layout">
         <section className="panel assigned-task-list-panel">
-          <div className="assigned-bucket-tabs">
-            <button className={bucketFilter === 'all' ? 'active' : ''} onClick={() => setBucketFilter('all')}>
-              Tat ca <b>{scopedTasks.length}</b>
-            </button>
-            {bucketOrder.map((bucket) => (
-              <button
-                className={bucketFilter === bucket ? 'active' : ''}
-                onClick={() => setBucketFilter(bucket)}
-                key={bucket}
-              >
-                {TASK_BUCKET_LABELS[bucket]} <b>{counts[bucket] || 0}</b>
-              </button>
-            ))}
+          <div className="assigned-list-heading">
+            <div>
+              <span className="eyebrow">Ket qua</span>
+              <h3>{filteredTasks.length} cong viec</h3>
+            </div>
+            {!!activeFilterCount && <span className="filter-result-note">Dang dung {activeFilterCount} bo loc</span>}
           </div>
 
           <div className="assigned-task-list">
@@ -308,7 +381,13 @@ export function TaskWorkspace({
       </div>
 
       {showCreate && (
-        <Modal title="Tao Task Marketing" onClose={() => setShowCreate(false)}>
+        <Modal
+          title="Tao Task Marketing"
+          description="Them cong viec moi, thoi han va nguoi cung phoi hop."
+          className="create-modal"
+          size="medium"
+          onClose={() => setShowCreate(false)}
+        >
           <TaskForm
             employees={employees}
             isManager={isManager}

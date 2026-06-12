@@ -60,18 +60,18 @@ export function TaskForm({ employees, isManager, token, currentUser, onSaved }) 
   };
 
   return (
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-form" onSubmit={submit}>
       <label>
-        Title
+        Ten cong viec
         <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
       </label>
       <label>
-        Description
+        Mo ta / ket qua mong muon
         <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
       </label>
       <div className="two-column">
         <label>
-          Team
+          Team phu trach
           <select
             value={form.team}
             onChange={(event) => {
@@ -89,7 +89,7 @@ export function TaskForm({ employees, isManager, token, currentUser, onSaved }) 
           </select>
         </label>
         <label>
-          Work type
+          Loai cong viec
           <select value={form.work_type} onChange={(event) => setForm({ ...form, work_type: event.target.value })}>
             {(WORK_TYPES_BY_TEAM[form.team] || []).map((workType) => (
               <option value={workType} key={workType}>{workTypeLabels[workType]}</option>
@@ -99,7 +99,7 @@ export function TaskForm({ employees, isManager, token, currentUser, onSaved }) 
       </div>
       <div className="two-column">
         <label>
-          Priority
+          Muc do uu tien
           <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
             {PRIORITY_OPTIONS.map((priority) => (
               <option value={priority} key={priority}>{priorityLabels[priority]}</option>
@@ -107,13 +107,13 @@ export function TaskForm({ employees, isManager, token, currentUser, onSaved }) 
           </select>
         </label>
         <label>
-          Deadline
+          Han hoan thanh
           <input type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} />
         </label>
       </div>
       {isManager && (
         <label>
-          Assignee
+          Nguoi phu trach chinh
           <select
             value={form.assignee_id}
             onChange={(event) => setForm({
@@ -147,7 +147,7 @@ export function TaskForm({ employees, isManager, token, currentUser, onSaved }) 
       {error && <InlineError message={error} />}
       <button className="primary-action" disabled={saving}>
         {saving ? <RefreshCw className="spin" size={18} /> : <Plus size={18} />}
-        Create task
+        Tao Task
       </button>
     </form>
   );
